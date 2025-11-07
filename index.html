@@ -7,7 +7,7 @@
   <style>
     body {
       margin: 0;
-      background: #0b0b0b;
+      background: #8081a9;
       color: white;
       font-family: sans-serif;
       overflow: hidden;
@@ -25,7 +25,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      background: rgba(0,0,0,0.5);
+      background: rgba(22, 31, 63, 0.5);
       padding: 8px 16px;
       border-radius: 10px;
     }
@@ -93,7 +93,7 @@
     const path = d3.geoPath().projection(projection);
 
     Promise.all([
-      d3.json("fires_seven_days.geojson"),
+      d3.json("fires_year.geojson"),
       d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson")
     ]).then(([fireData, world]) => {
 
@@ -159,7 +159,6 @@
           .attr("fill", d => colorScale(d.properties.BRIGHTNESS))
           .attr("opacity", 0.7)
           .transition()
-          .delay(3000) 
           .duration(3000)
           .attr("r", d => brightnessScale(d.properties.BRIGHTNESS))
           .transition()
