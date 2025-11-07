@@ -68,7 +68,10 @@
       const pointsGroup = svg.append("g");
 
       function update(daynight) {
-        const filtered = fires.features.filter(f => f.properties.DAYNIGHT === daynight);
+        const filtered = fires.features
+          .filter(f => f.properties.DAYNIGHT === daynight)
+          .filter(f => projection(f.geometry.coordinates)); // filter out nulls
+
         const color = daynight === "D" ? "red" : "skyblue";
 
         const points = pointsGroup.selectAll("circle")
@@ -89,6 +92,7 @@
         points.exit().remove();
       }
 
+      // Button handlers (these were inside the update before — moved out)
       d3.select("#dayBtn").on("click", () => {
         update("D");
         d3.select("#dayBtn").classed("active", true);
@@ -101,6 +105,7 @@
         d3.select("#nightBtn").classed("active", true);
       });
 
+      // Initial render
       update("D");
     });
   </script>
