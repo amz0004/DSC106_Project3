@@ -1,0 +1,58 @@
+body {
+      margin: 0;
+      background: #768cb6;
+      color: white;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+svg {
+    width: 100vw;
+    height: 90vh;
+    display: block;
+}
+#controls {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(22, 31, 63, 0.5);
+    padding: 8px 16px;
+    border-radius: 10px;
+}
+input[type="range"] {
+    width: 400px;
+}
+button {
+    background: #ff5722;
+    border: none;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+button:hover {
+    background: #ff784e;
+}
+#dateLabel {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    font-size: 24px;
+    background: rgba(0,0,0,0.6);
+    padding: 6px 12px;
+    border-radius: 8px;
+}
+.legend {
+    position: absolute;
+    right: 20px;
+    bottom: 20px;
+    background: rgba(0,0,0,0.6);
+    padding: 10px;
+    border-radius: 8px;
+    color: white;
+    font-size: 12px;
+}
