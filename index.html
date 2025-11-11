@@ -2,26 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Fires in the US</title>
-  <link rel="stylesheet" href="style.css">
+  <title>US Fires with Filters</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="dateLabel">Loading...</div>
-  <svg></svg>
-  <div id="controls">
-    <button id="playPause">⏸ Pause</button>
-    <input type="range" id="timeSlider" min="0" value="0" step="1">
-  </div>
-  <div class="legend">
-    <div><strong>Brightness</strong></div>
-    <canvas id="legendCanvas" width="120" height="12"></canvas>
-    <div style="display:flex; justify-content:space-between;">
-      <span id="minB">Low</span><span id="maxB">High</span>
-    </div>
+  <div id="seasonFilters">
+    <label><input type="checkbox" class="season" value="Winter" checked> Winter (Nov-Jan)</label>
+    <label><input type="checkbox" class="season" value="Spring" checked> Spring (Feb-Apr)</label>
+    <label><input type="checkbox" class="season" value="Summer" checked> Summer (May-Jul)</label>
+    <label><input type="checkbox" class="season" value="Fall" checked> Fall (Aug-Oct)</label>
   </div>
 
+  <div>
+    <label>Min Brightness: <span id="brightnessValue">325</span></label>
+    <input type="range" id="brightnessSlider" min="325" max="500" value="325">
+  </div>
 
+    <svg></svg>
+
+  <!-- Link to external JS -->
   <script src="script.js"></script>
 </body>
 </html>
