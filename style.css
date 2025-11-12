@@ -5,6 +5,54 @@ body {
   font-family: sans-serif;
   overflow: hidden;
 }
+
+.title {
+  position: absolute;
+  top: 12px; /* slightly above other controls */
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 40px;
+  /* background: rgba(0,0,0,0.6); */
+  padding: 8px 14px;
+  border-radius: 8px;
+  color: white;
+  z-index: 50;
+  pointer-events: none; /* allow clicks to pass through if overlapping */
+  white-space: nowrap;
+}
+
+/* Tooltip for fire points */
+.tooltip {
+  position: absolute;
+  pointer-events: none; /* so it doesn't interfere with mouse events */
+  background: rgba(0,0,0,0.85);
+  color: #fff;
+  padding: 8px 10px;
+  font-size: 13px;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+  z-index: 200;
+  transform: translate(-6px, -6px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  opacity: 0;
+  white-space: nowrap;
+}
+
+.tooltip.visible {
+  opacity: 1;
+  transform: translate(0, 0);
+}
+
+.tooltip .line {
+  margin: 0;
+  padding: 0;
+}
+
+.tooltip .label {
+  color: rgba(255,255,255,0.85);
+  margin-right: 6px;
+}
+
 svg {
   width: 100vw;
   height: 90vh;
@@ -28,4 +76,126 @@ svg {
   border-radius: 8px;
   color: white;
   font-size: 12px;
+}
+
+/* Dropdown styles for season filter */
+.dropdown {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  color: white;
+  font-size: 14px;
+  user-select: none;
+}
+
+.dropdown-toggle {
+  background: rgba(0,0,0,0.6);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: white;
+}
+
+.dropdown-toggle:focus {
+  outline: 2px solid rgba(255,255,255,0.15);
+}
+
+.dropdown-toggle .caret {
+  display: inline-block;
+  transition: transform 0.18s ease;
+}
+
+.dropdown-toggle.open .caret,
+.dropdown-toggle.open .caret {
+  transform: rotate(180deg);
+}
+
+.dropdown-panel {
+  margin-top: 8px;
+  background: rgba(0,0,0,0.6);
+  padding: 10px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+}
+
+/* Ensure the [hidden] attribute actually hides the panel (author CSS can override UA rules) */
+.dropdown-panel[hidden] {
+  display: none;
+}
+
+.dropdown-panel label {
+  font-size: 13px;
+  color: #fff;
+}
+
+.dropdown-panel input[type="checkbox"] {
+  margin-right: 8px;
+}
+
+/* Brightness slider box to match dropdown appearance */
+.slider-box {
+  position: absolute;
+  right: 20px; /* bottom-right of the screen */
+  bottom: 20px;
+  background: rgba(0,0,0,0.6);
+  padding: 8px 12px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: white;
+  font-size: 14px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+  --thumb-color: #ffd166; /* default thumb color, overridden by JS */
+}
+
+.slider-box .slider-label {
+  font-size: 14px;
+  color: #fff;
+  white-space: nowrap;
+}
+
+
+.slider-box .slider-range {
+  width: 180px;
+  appearance: none;
+  -webkit-appearance: none;
+  height: 6px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 6px;
+}
+
+/* WebKit thumb */
+.slider-box .slider-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--thumb-color, #ffd166);
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(255,209,102,0.12);
+}
+
+/* Firefox thumb */
+.slider-box .slider-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--thumb-color, #ffd166);
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(255,209,102,0.12);
+}
+
+#brightnessValue {
+  margin-left: 6px;
+  font-weight: 600;
+  font-size: 14px;
 }

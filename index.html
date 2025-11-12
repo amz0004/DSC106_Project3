@@ -7,21 +7,28 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="seasonFilters">
-    <label><input type="checkbox" class="season" value="Winter" checked> Winter (Nov-Jan)</label>
-    <label><input type="checkbox" class="season" value="Spring" checked> Spring (Feb-Apr)</label>
-    <label><input type="checkbox" class="season" value="Summer" checked> Summer (May-Jul)</label>
-    <label><input type="checkbox" class="season" value="Fall" checked> Fall (Aug-Oct)</label>
+  <h1 class="title">US Fires from November 2024 to October 2025</h1>
+  <!-- Collapsible season dropdown -->
+  <div class="dropdown" id="seasonDropdown">
+    <button class="dropdown-toggle" aria-expanded="false" aria-controls="seasonPanel">Seasons <span class="caret">▾</span></button>
+    <div class="dropdown-panel" id="seasonPanel" hidden>
+      <label><input type="checkbox" class="season" value="Winter" checked> Winter (Nov-Jan)</label>
+      <label><input type="checkbox" class="season" value="Spring" checked> Spring (Feb-Apr)</label>
+      <label><input type="checkbox" class="season" value="Summer" checked> Summer (May-Jul)</label>
+      <label><input type="checkbox" class="season" value="Fall" checked> Fall (Aug-Oct)</label>
+    </div>
   </div>
 
-  <div>
-    <label>Min Brightness: <span id="brightnessValue">325</span></label>
-    <input type="range" id="brightnessSlider" min="325" max="500" value="325">
+  <!-- Brightness slider styled to match dropdown appearance -->
+  <div class="slider-box" id="brightnessControl">
+    <label class="slider-label">Min Brightness: <span id="brightnessValue">325</span></label>
+    <input type="range" id="brightnessSlider" class="slider-range" min="325" max="500" value="325">
   </div>
 
     <svg></svg>
 
-  <!-- Link to external JS -->
+  <!-- Tooltip element for point hover -->
+  <div id="tooltip" class="tooltip" aria-hidden="true"></div>
   <script src="script.js"></script>
 </body>
 </html>
