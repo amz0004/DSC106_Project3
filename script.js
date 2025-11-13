@@ -36,11 +36,13 @@ Promise.all([
   d3.json("fires_year.geojson"),
   d3.json("us-states.json")
 ]).then(([fireData, states]) => {
+  // top-level map group so we can apply transforms (zoom/pan) to everything
+  const gMap = svg.append('g').attr('class', 'map-layer');
 
   // --- DRAW GRATITCULE (longitude/latitude grid) ---
   // draw a subtle graticule behind the states and points. Step can be adjusted to 5 or 10 degrees.
   const graticule = d3.geoGraticule().step([10, 10]); // [lonStep, latStep] in degrees
-  svg.append('g')
+  gMap.append('g')
     .attr('class', 'graticule-group')
     .append('path')
     .datum(graticule())
@@ -49,7 +51,7 @@ Promise.all([
 
   // Add graticule tick labels (lon across top/bottom, lat at left/right)
   // We'll compute tick positions by projecting representative points and place labels at the SVG edges.
-  const gLabels = svg.append('g').attr('class', 'graticule-labels');
+  const gLabels = gMap.append('g').attr('class', 'graticule-labels');
   const lonStep = 10; // degrees
   const latStep = 10;
   const lonTicks = d3.range(-180, 181, lonStep);
@@ -94,7 +96,7 @@ Promise.all([
     const w = (b[1][0] - b[0][0]) + pad * 2;
     const h = (b[1][1] - b[0][1]) + pad * 2;
 
-    const inset = svg.append('g').attr('class', `inset-${stateName.replace(/\s+/g,'-').toLowerCase()}`);
+  const inset = gMap.append('g').attr('class', `inset-${stateName.replace(/\s+/g,'-').toLowerCase()}`);
     // clip path (in screen/projected coordinates)
     inset.append('clipPath').attr('id', clipId)
       .append('rect').attr('x', x).attr('y', y).attr('width', w).attr('height', h);
@@ -125,6 +127,7 @@ Promise.all([
       .attr('clip-path', `url(#${clipId})`);
   }
 
+  // move inset drawing to gMap by referencing the helper which uses gMap
   addInsetBox('Alaska', 'clip-ak', 10);
   addInsetBox('Hawaii', 'clip-hi', 10);
 
@@ -193,13 +196,20 @@ Promise.all([
   // state selection set (names)
   const selectedStates = new Set();
 
-  // reset-selection button (hidden until selection made)
-  const resetBtn = d3.select('body').append('button')
-    .attr('id', 'resetSelectionBtn')
-    .text('Reset selection')
+  // create a bottom-left control container for reset and zoom buttons
+  const controls = d3.select('body').append('div')
+    .attr('id', 'selection-controls')
     .style('position', 'fixed')
     .style('left', '12px')
     .style('bottom', '12px')
+    .style('display', 'flex')
+    .style('gap', '8px')
+    .style('align-items', 'center')
+    .style('z-index', 9999);
+
+  const resetBtn = controls.append('button')
+    .attr('id', 'resetSelectionBtn')
+    .text('Reset selection')
     .style('padding', '8px 10px')
     .style('background', 'rgba(0,0,0,0.6)')
     .style('color', '#fff')
@@ -211,14 +221,45 @@ Promise.all([
       selectedStates.clear();
       updateStateStyles();
       updateFires();
+      // reset map transform to original view
+      gMap.transition().duration(600).attr('transform', null);
       resetBtn.style('display', 'none');
+      zoomInBtn.style('display', 'none');
+      zoomOutBtn.style('display', 'none');
     });
+
+  // zoom buttons (hidden until selection made)
+  const zoomInBtn = controls.append('button')
+    .attr('id', 'zoomInBtn')
+    .text('Zoom In')
+    .attr('title', 'Zoom to selected state(s)')
+    .style('padding', '8px 10px')
+    .style('background', 'rgba(0,0,0,0.6)')
+    .style('color', '#fff')
+    .style('border', '1px solid rgba(255,255,255,0.08)')
+    .style('border-radius', '6px')
+    .style('box-shadow', '0 6px 18px rgba(0,0,0,0.4)')
+    .style('display', 'none');
+
+  const zoomOutBtn = controls.append('button')
+    .attr('id', 'zoomOutBtn')
+    .text('Zoom Out')
+    .attr('title', 'Reset zoom')
+    .style('padding', '8px 10px')
+    .style('background', 'rgba(0,0,0,0.6)')
+    .style('color', '#fff')
+    .style('border', '1px solid rgba(255,255,255,0.08)')
+    .style('border-radius', '6px')
+    .style('box-shadow', '0 6px 18px rgba(0,0,0,0.4)')
+    .style('display', 'none');
+
+  // zoom handlers will be attached below after statesG exists
 
 
   // --- DRAW STATES ---
   // create a dedicated group for state paths so we don't accidentally bind to
   // other <path> elements (graticules, inset paths, etc.) that were appended earlier
-  const statesG = svg.append('g').attr('class', 'states-group');
+  const statesG = gMap.append('g').attr('class', 'states-group');
   // draw state paths and attach click handlers for selection
   const statePaths = statesG.selectAll('path')
     .data(states.features)
@@ -239,9 +280,16 @@ Promise.all([
         selectedStates.add(name);
       }
       updateStateStyles();
-      // show/hide reset button
-      if (selectedStates.size > 0) resetBtn.style('display', 'block');
-      else resetBtn.style('display', 'none');
+      // show/hide reset and zoom buttons
+      if (selectedStates.size > 0) {
+        resetBtn.style('display', 'block');
+        zoomInBtn.style('display', 'inline-block');
+        zoomOutBtn.style('display', 'none');
+      } else {
+        resetBtn.style('display', 'none');
+        zoomInBtn.style('display', 'none');
+        zoomOutBtn.style('display', 'none');
+      }
       // update points shown
       updateFires();
     });
@@ -249,6 +297,53 @@ Promise.all([
   function updateStateStyles() {
     statesG.selectAll('path').attr('fill', d => (d && d.properties && selectedStates.has(d.properties.NAME)) ? '#dcdcdc' : '#1b1b1b');
   }
+
+  // compute a transform (translate, scale) that fits the union of selected states
+  function computeFitTransform() {
+    if (selectedStates.size === 0) return null;
+    // union bounds in projected pixel space
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    states.features.forEach(f => {
+      const name = f.properties && f.properties.NAME;
+      if (!name || !selectedStates.has(name)) return;
+      try {
+        const b = path.bounds(f); // [[x0,y0],[x1,y1]]
+        if (b && b[0] && b[1]) {
+          x0 = Math.min(x0, b[0][0]);
+          y0 = Math.min(y0, b[0][1]);
+          x1 = Math.max(x1, b[1][0]);
+          y1 = Math.max(y1, b[1][1]);
+        }
+      } catch (e) {
+        // ignore
+      }
+    });
+    if (!isFinite(x0) || !isFinite(y0) || !isFinite(x1) || !isFinite(y1)) return null;
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    if (dx <= 0 || dy <= 0) return null;
+    const padding = 40; // px padding around selection
+    const k = Math.min((width - padding) / dx, (height - padding) / dy) * 0.95;
+    // center of bounding box
+    const cx = (x0 + x1) / 2;
+    const cy = (y0 + y1) / 2;
+    const tx = (width / 2) - k * cx;
+    const ty = (height / 2) - k * cy;
+    return { k, tx, ty };
+  }
+
+  // wire zoom buttons
+  zoomInBtn.on('click', () => {
+    const t = computeFitTransform();
+    if (!t) return;
+    gMap.transition().duration(700).attr('transform', `translate(${t.tx},${t.ty}) scale(${t.k})`);
+    zoomOutBtn.style('display', 'inline-block');
+  });
+
+  zoomOutBtn.on('click', () => {
+    gMap.transition().duration(700).attr('transform', null);
+    zoomOutBtn.style('display', 'none');
+  });
 
   // --- DEFINE SEASONS ---
   const seasons = {
@@ -265,7 +360,7 @@ Promise.all([
   const brightnessScale = d3.scaleLinear().domain([325, 510]).range([2, 8]);
   const colorScale = d3.scaleSequential(d3.interpolateRgb("red", "yellow")).domain([325, 510]);
   // --- ADD FIRES ---
-  const pointsGroup = svg.append("g");
+  const pointsGroup = gMap.append("g");
 
   // --- BRIGHTNESS BY MONTH CHART ---
   const chartSvg = d3.select('#chartSvg');
