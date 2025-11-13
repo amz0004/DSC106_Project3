@@ -97,8 +97,32 @@ Promise.all([
   const xAxis = d3.axisBottom(x).tickFormat(i => (i+1)); // months 1..12
   const yAxis = d3.axisLeft(y).ticks(3);
 
+  // add title
+  chartSvg.append('text')
+    .attr('class', 'chart-title')
+    .attr('x', +chartSvg.attr('width') - 100)
+    .attr('y', 10)
+    .attr('text-anchor', 'end')
+    .text('Avg Brightness by Month');
+
+  // draw axes
   chartG.append('g').attr('class','chart-axis x-axis').attr('transform', `translate(0,${chartHeight})`).call(xAxis);
   chartG.append('g').attr('class','chart-axis y-axis').call(yAxis);
+
+  // x-axis label
+  chartG.append('text')
+    .attr('class','axis-label')
+    .attr('x', chartWidth / 2)
+    .attr('y', chartHeight + 28)
+    .attr('text-anchor','middle')
+    .text('month');
+
+  // y-axis label
+  chartG.append('text')
+    .attr('class','axis-label')
+    .attr('transform', `translate(-28,${chartHeight/2}) rotate(-90)`)
+    .attr('text-anchor','middle')
+    .text('Brightness');
 
   // overlay rects for each month (for highlights)
   const monthRects = chartG.selectAll('.month-rect').data(d3.range(0,12)).enter()

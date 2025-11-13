@@ -81,8 +81,9 @@ svg {
 /* Small chart container in the top-right */
 #chartBox {
   position: absolute;
-  top: 20px;
+  /* place above the brightness slider (which sits at bottom-right) */
   right: 20px;
+  bottom: 100px;
   width: 360px;
   height: 220px;
   background: rgba(0,0,0,0.6);
@@ -111,6 +112,18 @@ svg {
 }
 
 .chart-axis text {
+  fill: rgba(255,255,255,0.9);
+  font-size: 11px;
+}
+
+/* Chart title and axis label styles */
+.chart-title {
+  fill: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.axis-label {
   fill: rgba(255,255,255,0.9);
   font-size: 11px;
 }
