@@ -86,8 +86,8 @@ Promise.all([
     return sums.map((s, i) => counts[i] ? s / counts[i] : null);
   }
 
-  // initial monthly averages from full fireData
-  const monthlyAvg = computeMonthlyAvg(fireData.features);
+  // initial monthly averages from full fireData (mutable)
+  let monthlyAvg = computeMonthlyAvg(fireData.features);
 
   // scales
   const x = d3.scalePoint().domain(d3.range(0,12)).range([0, chartWidth]).padding(0.5);
@@ -136,18 +136,44 @@ Promise.all([
 
   // line and points
   const line = d3.line()
-    .defined((d,i) => monthlyAvg[i] != null)
+    .defined(d => d != null)
     .x((d,i) => x(i))
-    .y((d,i) => y(monthlyAvg[i]));
+    .y(d => y(d));
 
-  chartG.append('path').datum(monthlyAvg).attr('class','chart-line').attr('d', line);
-  // points
-  chartG.selectAll('.chart-point').data(monthlyAvg.map((v,i)=>({v,i}))).enter()
+  // empty line path and placeholder points — we'll update them from filtered data
+  const linePath = chartG.append('path').attr('class','chart-line');
+  chartG.selectAll('.chart-point').data(monthlyAvg).enter()
     .append('circle')
     .attr('class','chart-point')
-    .attr('cx', d => x(d.i))
-    .attr('cy', d => (d.v!=null ? y(d.v) : -10))
     .attr('r', 3);
+
+  // function to update chart based on a list of fire features
+  function updateChartFromFires(fireFeatures) {
+    monthlyAvg = computeMonthlyAvg(fireFeatures);
+    // update y-domain
+    const minVal = d3.min(monthlyAvg.filter(d=>d!=null)) || 300;
+    const maxVal = d3.max(monthlyAvg.filter(d=>d!=null)) || 340;
+    y.domain([minVal, maxVal]).nice();
+    // redraw y axis
+    chartG.select('.chart-axis.y-axis').call(d3.axisLeft(y).ticks(3));
+    // update line
+    linePath.datum(monthlyAvg).attr('d', line);
+    // update points
+    const pts = chartG.selectAll('.chart-point').data(monthlyAvg);
+    pts.join(
+      enter => enter.append('circle').attr('class','chart-point').attr('r',3),
+      update => update,
+      exit => exit.remove()
+    ).attr('cx', (d,i) => x(i)).attr('cy', d => d!=null ? y(d) : -10);
+    // recolor month rects using the new monthlyAvg
+    chartG.selectAll('.month-rect').each(function(d,i) {
+      const rect = d3.select(this);
+      const avg = monthlyAvg[i];
+      if (avg != null && typeof colorScale === 'function') {
+        rect.style('fill', colorScale(avg)).style('opacity', 0.16);
+      }
+    });
+  }
 
   // helper to update which month rects are visible based on selected seasons
   function updateChartHighlights(selectedSeasons) {
@@ -281,8 +307,7 @@ Promise.all([
 
   function updateFires() {
     const selectedSeasons = Array.from(document.querySelectorAll(".season:checked")).map(cb => cb.value);
-    updateTitle(selectedSeasons);
-    if (typeof updateChartHighlights === 'function') updateChartHighlights(selectedSeasons);
+  updateTitle(selectedSeasons);
     const minBrightness = +document.getElementById("brightnessSlider").value;
 
     const firesToShow = filteredFireData.filter(d => {
@@ -324,6 +349,11 @@ Promise.all([
       .on('mouseover', (event, d) => showTooltip(event, d))
       .on('mousemove', (event, d) => moveTooltip(event, d))
       .on('mouseout', () => hideTooltip());
+
+  // update chart to reflect current min-brightness (ignore season filtering for the line)
+  const firesForChart = filteredFireData.filter(d => d.properties.BRIGHTNESS >= minBrightness);
+  if (typeof updateChartFromFires === 'function') updateChartFromFires(firesForChart);
+    if (typeof updateChartHighlights === 'function') updateChartHighlights(selectedSeasons);
   }
 
   // --- FILTER EVENTS ---
