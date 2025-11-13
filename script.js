@@ -129,43 +129,66 @@ Promise.all([
   addInsetBox('Hawaii', 'clip-hi', 10);
 
   // --- PRECOMPUTE FIRE -> STATE MAPPING (one-time, optimized) ---
-  // Build quick lon/lat bounding boxes for states and prefilter by bbox before
-  // running the more expensive d3.geoContains. This avoids expensive polygon
-  // tests for most state/fire pairs and prevents freezing on large datasets.
-  const stateBounds = states.features.map(s => {
-    const b = d3.geoBounds(s); // [[minLon,minLat],[maxLon,maxLat]]
-    return { feature: s, name: s.properties && s.properties.NAME, bounds: b };
-  });
+  // Show a loading message while we compute the spatial index. The precompute
+  // runs asynchronously (setTimeout) so the browser can render the message
+  // before doing the heavy work.
+  const loadingEl = d3.select('body').append('div')
+    .attr('id', 'map-loading')
+    .text('Loading map...')
+    .style('position', 'fixed')
+    .style('left', '50%')
+    .style('top', '12px')
+    .style('transform', 'translateX(-50%)')
+    .style('background', 'rgba(0,0,0,0.75)')
+    .style('color', '#fff')
+    .style('padding', '8px 12px')
+    .style('border-radius', '8px')
+    .style('z-index', 9999)
+    .style('font-size', '13px');
 
-  const padDeg = 0.01; // small padding to include boundary cases
-  fireData.features.forEach(f => {
-    const pt = f && f.geometry && Array.isArray(f.geometry.coordinates) ? f.geometry.coordinates : null;
-    const names = [];
-    if (pt) {
-      const lon = +pt[0], lat = +pt[1];
-      if (!isNaN(lon) && !isNaN(lat)) {
-        for (let i = 0; i < stateBounds.length; i++) {
-          const sb = stateBounds[i];
-          const minLon = sb.bounds[0][0] - padDeg;
-          const minLat = sb.bounds[0][1] - padDeg;
-          const maxLon = sb.bounds[1][0] + padDeg;
-          const maxLat = sb.bounds[1][1] + padDeg;
-          // cheap bbox check first
-          if (lon < minLon || lon > maxLon || lat < minLat || lat > maxLat) continue;
-          try {
-            if (d3.geoContains(sb.feature, pt)) {
-              if (sb.name) names.push(sb.name);
+  setTimeout(() => {
+    try {
+      // Build quick lon/lat bounding boxes for states and prefilter by bbox
+      // before running the more expensive d3.geoContains.
+      const stateBounds = states.features.map(s => {
+        const b = d3.geoBounds(s); // [[minLon,minLat],[maxLon,maxLat]]
+        return { feature: s, name: s.properties && s.properties.NAME, bounds: b };
+      });
+
+      const padDeg = 0.01; // small padding to include boundary cases
+      fireData.features.forEach(f => {
+        const pt = f && f.geometry && Array.isArray(f.geometry.coordinates) ? f.geometry.coordinates : null;
+        const names = [];
+        if (pt) {
+          const lon = +pt[0], lat = +pt[1];
+          if (!isNaN(lon) && !isNaN(lat)) {
+            for (let i = 0; i < stateBounds.length; i++) {
+              const sb = stateBounds[i];
+              const minLon = sb.bounds[0][0] - padDeg;
+              const minLat = sb.bounds[0][1] - padDeg;
+              const maxLon = sb.bounds[1][0] + padDeg;
+              const maxLat = sb.bounds[1][1] + padDeg;
+              // cheap bbox check first
+              if (lon < minLon || lon > maxLon || lat < minLat || lat > maxLat) continue;
+              try {
+                if (d3.geoContains(sb.feature, pt)) {
+                  if (sb.name) names.push(sb.name);
+                }
+              } catch (e) {
+                // ignore errors for problematic geometries
+              }
             }
-          } catch (e) {
-            // ignore errors for problematic geometries
           }
         }
-      }
+        if (!f.properties) f.properties = {};
+        f.properties._containingStates = names;
+        f.properties._containingState = names.length === 0 ? null : (names.length === 1 ? names[0] : names.join(', '));
+      });
+    } finally {
+      // remove loading indicator once precompute is done
+      loadingEl.remove();
     }
-    if (!f.properties) f.properties = {};
-    f.properties._containingStates = names;
-    f.properties._containingState = names.length === 0 ? null : (names.length === 1 ? names[0] : names.join(', '));
-  });
+  }, 20);
 
   // state selection set (names)
   const selectedStates = new Set();
