@@ -128,18 +128,65 @@ Promise.all([
   addInsetBox('Alaska', 'clip-ak', 10);
   addInsetBox('Hawaii', 'clip-hi', 10);
 
+  // state selection set (names)
+  const selectedStates = new Set();
+
+  // reset-selection button (hidden until selection made)
+  const resetBtn = d3.select('body').append('button')
+    .attr('id', 'resetSelectionBtn')
+    .text('Reset selection')
+    .style('position', 'fixed')
+    .style('left', '12px')
+    .style('bottom', '12px')
+    .style('padding', '8px 10px')
+    .style('background', 'rgba(0,0,0,0.6)')
+    .style('color', '#fff')
+    .style('border', '1px solid rgba(255,255,255,0.08)')
+    .style('border-radius', '6px')
+    .style('box-shadow', '0 6px 18px rgba(0,0,0,0.4)')
+    .style('display', 'none')
+    .on('click', () => {
+      selectedStates.clear();
+      updateStateStyles();
+      updateFires();
+      resetBtn.style('display', 'none');
+    });
+
 
   // --- DRAW STATES ---
   // create a dedicated group for state paths so we don't accidentally bind to
   // other <path> elements (graticules, inset paths, etc.) that were appended earlier
   const statesG = svg.append('g').attr('class', 'states-group');
-  statesG.selectAll('path')
+  // draw state paths and attach click handlers for selection
+  const statePaths = statesG.selectAll('path')
     .data(states.features)
     .enter()
     .append('path')
     .attr('d', path)
     .attr('fill', '#1b1b1b')
-    .attr('stroke', '#333');
+    .attr('stroke', '#333')
+    .style('cursor', 'pointer')
+    .on('click', function(event, d) {
+      // toggle selection
+      event.stopPropagation();
+      const name = d.properties && d.properties.NAME;
+      if (!name) return;
+      if (selectedStates.has(name)) {
+        selectedStates.delete(name);
+      } else {
+        selectedStates.add(name);
+      }
+      updateStateStyles();
+      // show/hide reset button
+      if (selectedStates.size > 0) resetBtn.style('display', 'block');
+      else resetBtn.style('display', 'none');
+      // update points shown
+      updateFires();
+    });
+
+  function updateStateStyles() {
+    statesG.selectAll('path').attr('fill', d => (d && d.properties && selectedStates.has(d.properties.NAME)) ? '#dcdcdc' : '#1b1b1b');
+  }
 
   // --- DEFINE SEASONS ---
   const seasons = {
@@ -326,10 +373,21 @@ Promise.all([
     const dateStr = props.ACQ_DATE ? formatDateString(props.ACQ_DATE, props.ACQ_TIME) : 'unknown';
     const daynightRaw = props.DAYNIGHT || props.DAY_NIGHT || props.DAY || '';
     const daynight = (''+daynightRaw).toUpperCase() === 'N' ? 'Night' : ((''+daynightRaw).toUpperCase() === 'D' ? 'Day' : (daynightRaw || 'Unknown'));
+    // compute coordinates (GeoJSON is [lon, lat]) and format as decimal degrees
+    let coordLine = '';
+    if (d && d.geometry && Array.isArray(d.geometry.coordinates)) {
+      const lon = +d.geometry.coordinates[0];
+      const lat = +d.geometry.coordinates[1];
+      if (!isNaN(lat) && !isNaN(lon)) {
+        coordLine = `<div class="line"><span class="label">Lat:</span>${lat.toFixed(4)}° <span class="label" style="margin-left:8px">Lon:</span>${lon.toFixed(4)}°</div>`;
+      }
+    }
+
     tooltipEl.innerHTML = `
       <div class="line"><span class="label">Brightness:</span><strong>${typeof brightness === 'number' ? brightness.toFixed(2) : brightness}</strong></div>
       <div class="line"><span class="label">Date:</span>${dateStr}</div>
       <div class="line"><span class="label">Detected:</span>${daynight}</div>
+      ${coordLine}
     `;
     tooltipEl.classList.add('visible');
     tooltipEl.setAttribute('aria-hidden', 'false');
@@ -408,7 +466,25 @@ Promise.all([
     const firesToShow = filteredFireData.filter(d => {
       const month = new Date(d.properties.ACQ_DATE).getMonth();
       const inSelectedSeason = selectedSeasons.some(s => seasons[s].includes(month));
-      return inSelectedSeason && d.properties.BRIGHTNESS >= minBrightness;
+      if (!inSelectedSeason || d.properties.BRIGHTNESS < minBrightness) return false;
+      // if any states are selected, only include fires within those state boundaries
+      if (selectedStates.size > 0) {
+        // check containment against the selected state features
+        const sel = states.features.filter(s => selectedStates.has(s.properties && s.properties.NAME));
+        // get a point coordinate [lon, lat] from the fire feature
+        const pt = d && d.geometry && d.geometry.coordinates ? d.geometry.coordinates : null;
+        if (!pt) return false;
+        for (let i = 0; i < sel.length; i++) {
+          try {
+            // use the coordinate array (lon,lat) when testing containment
+            if (d3.geoContains(sel[i], pt)) return true;
+          } catch (e) {
+            // ignore geometry errors and continue
+          }
+        }
+        return false;
+      }
+      return true;
     });
 
     const points = pointsGroup.selectAll("circle").data(firesToShow, d => d.properties.id);
