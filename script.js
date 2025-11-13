@@ -128,6 +128,45 @@ Promise.all([
   addInsetBox('Alaska', 'clip-ak', 10);
   addInsetBox('Hawaii', 'clip-hi', 10);
 
+  // --- PRECOMPUTE FIRE -> STATE MAPPING (one-time, optimized) ---
+  // Build quick lon/lat bounding boxes for states and prefilter by bbox before
+  // running the more expensive d3.geoContains. This avoids expensive polygon
+  // tests for most state/fire pairs and prevents freezing on large datasets.
+  const stateBounds = states.features.map(s => {
+    const b = d3.geoBounds(s); // [[minLon,minLat],[maxLon,maxLat]]
+    return { feature: s, name: s.properties && s.properties.NAME, bounds: b };
+  });
+
+  const padDeg = 0.01; // small padding to include boundary cases
+  fireData.features.forEach(f => {
+    const pt = f && f.geometry && Array.isArray(f.geometry.coordinates) ? f.geometry.coordinates : null;
+    const names = [];
+    if (pt) {
+      const lon = +pt[0], lat = +pt[1];
+      if (!isNaN(lon) && !isNaN(lat)) {
+        for (let i = 0; i < stateBounds.length; i++) {
+          const sb = stateBounds[i];
+          const minLon = sb.bounds[0][0] - padDeg;
+          const minLat = sb.bounds[0][1] - padDeg;
+          const maxLon = sb.bounds[1][0] + padDeg;
+          const maxLat = sb.bounds[1][1] + padDeg;
+          // cheap bbox check first
+          if (lon < minLon || lon > maxLon || lat < minLat || lat > maxLat) continue;
+          try {
+            if (d3.geoContains(sb.feature, pt)) {
+              if (sb.name) names.push(sb.name);
+            }
+          } catch (e) {
+            // ignore errors for problematic geometries
+          }
+        }
+      }
+    }
+    if (!f.properties) f.properties = {};
+    f.properties._containingStates = names;
+    f.properties._containingState = names.length === 0 ? null : (names.length === 1 ? names[0] : names.join(', '));
+  });
+
   // state selection set (names)
   const selectedStates = new Set();
 
@@ -383,10 +422,14 @@ Promise.all([
       }
     }
 
+    // state info from precomputed mapping
+    const stateInfo = (props && props._containingState) ? props._containingState : 'Unknown';
+
     tooltipEl.innerHTML = `
       <div class="line"><span class="label">Brightness:</span><strong>${typeof brightness === 'number' ? brightness.toFixed(2) : brightness}</strong></div>
       <div class="line"><span class="label">Date:</span>${dateStr}</div>
       <div class="line"><span class="label">Detected:</span>${daynight}</div>
+      <div class="line"><span class="label">State:</span>${stateInfo}</div>
       ${coordLine}
     `;
     tooltipEl.classList.add('visible');
@@ -469,19 +512,11 @@ Promise.all([
       if (!inSelectedSeason || d.properties.BRIGHTNESS < minBrightness) return false;
       // if any states are selected, only include fires within those state boundaries
       if (selectedStates.size > 0) {
-        // check containment against the selected state features
-        const sel = states.features.filter(s => selectedStates.has(s.properties && s.properties.NAME));
-        // get a point coordinate [lon, lat] from the fire feature
-        const pt = d && d.geometry && d.geometry.coordinates ? d.geometry.coordinates : null;
-        if (!pt) return false;
-        for (let i = 0; i < sel.length; i++) {
-          try {
-            // use the coordinate array (lon,lat) when testing containment
-            if (d3.geoContains(sel[i], pt)) return true;
-          } catch (e) {
-            // ignore geometry errors and continue
-          }
-        }
+        // use precomputed containing states on the fire feature for a fast check
+        const c = (d.properties && d.properties._containingStates) ? d.properties._containingStates : [];
+        if (!c || c.length === 0) return false;
+        // return true if any of the containing state names are in selectedStates
+        for (let i = 0; i < c.length; i++) if (selectedStates.has(c[i])) return true;
         return false;
       }
       return true;
