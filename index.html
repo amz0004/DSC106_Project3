@@ -31,7 +31,13 @@
       <label class="slider-label">Min Brightness: <span id="brightnessValue">325</span></label>
       <input type="range" id="brightnessSlider" class="slider-range" min="325" max="500" value="325">
     </div>
-    <svg id="chartSvg" width="360" height="220" aria-label="Average brightness by month"></svg>
+    <!-- chart title placed below the slider and above the svg chart -->
+    <div id="chartTitleHtml" class="chart-title-html" aria-hidden="false">
+      <div class="chart-title-line">Avg Brightness per Month</div>
+      <div class="chart-title-sub">given Min Brightness Filter & Selected States</div>
+    </div>
+      <!-- increased SVG height to ensure x-axis labels and bottom padding are visible -->
+      <svg id="chartSvg" width="360" height="250" aria-label="Average brightness by month"></svg>
   </div>
 
   <!-- Tooltip element for point hover -->

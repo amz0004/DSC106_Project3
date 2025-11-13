@@ -364,9 +364,17 @@ Promise.all([
 
   // --- BRIGHTNESS BY MONTH CHART ---
   const chartSvg = d3.select('#chartSvg');
-  const chartMargin = {top: 18, right: 12, bottom: 28, left: 36};
-  const chartWidth = +chartSvg.attr('width') - chartMargin.left - chartMargin.right;
-  const chartHeight = +chartSvg.attr('height') - chartMargin.top - chartMargin.bottom;
+  // add a larger bottom margin so axis ticks and labels are not clipped
+  const chartMargin = {top: 18, right: 12, bottom: 48, left: 36};
+  // compute chart drawing area from rendered SVG size (client size) so the
+  // chart adapts to CSS/container sizing and doesn't overflow the viewport.
+  function getChartSize() {
+    const rect = chartSvg.node().getBoundingClientRect();
+    const w = rect.width - chartMargin.left - chartMargin.right;
+    const h = rect.height - chartMargin.top - chartMargin.bottom;
+    return { width: Math.max(10, w), height: Math.max(10, h) };
+  }
+  let { width: chartWidth, height: chartHeight } = getChartSize();
   const chartG = chartSvg.append('g').attr('transform', `translate(${chartMargin.left},${chartMargin.top})`);
 
   function computeMonthlyAvg(dataset) {
@@ -387,37 +395,35 @@ Promise.all([
 
   // initial monthly averages from full fireData (mutable)
   let monthlyAvg = computeMonthlyAvg(fireData.features);
+  // cache last dataset used for the small chart so we can re-render on resize
+  let lastFiresForChart = filteredFireData.slice();
 
-  // scales
-  const x = d3.scalePoint().domain(d3.range(0,12)).range([0, chartWidth]).padding(0.5);
-  const y = d3.scaleLinear().domain([d3.min(monthlyAvg.filter(d=>d!=null)) || 300, d3.max(monthlyAvg.filter(d=>d!=null)) || 340]).nice().range([chartHeight, 0]);
+  // scales (use let so we can update ranges if the container size changes)
+  let x = d3.scalePoint().domain(d3.range(0,12)).range([0, chartWidth]).padding(0.5);
+  let y = d3.scaleLinear().domain([d3.min(monthlyAvg.filter(d=>d!=null)) || 300, d3.max(monthlyAvg.filter(d=>d!=null)) || 340]).nice().range([chartHeight, 0]);
 
   // axes
   const xAxis = d3.axisBottom(x).tickFormat(i => (i+1)); // months 1..12
   const yAxis = d3.axisLeft(y).ticks(3);
 
-  // add title
-  chartSvg.append('text')
-    .attr('class', 'chart-title')
-    .attr('x', +chartSvg.attr('width') - 12)
-    .attr('y', 10)
-    .attr('text-anchor', 'end')
-    .text('Avg Brightness by Month given Min Brightness Filter');
+  // chart title is rendered as an HTML element placed above the svg (see index.html)
 
-  // draw axes
-  chartG.append('g').attr('class','chart-axis x-axis').attr('transform', `translate(0,${chartHeight})`).call(xAxis);
-  chartG.append('g').attr('class','chart-axis y-axis').call(yAxis);
+  // draw axes (keep references so we can update them when sizes change)
+  const xAxisG = chartG.append('g').attr('class','chart-axis x-axis').attr('transform', `translate(0,${chartHeight})`);
+  const yAxisG = chartG.append('g').attr('class','chart-axis y-axis');
+  xAxisG.call(xAxis);
+  yAxisG.call(yAxis);
 
-  // x-axis label
-  chartG.append('text')
+  // x-axis label: position using bottom margin so it stays visible
+  const xLabel = chartG.append('text')
     .attr('class','axis-label')
     .attr('x', chartWidth / 2)
-    .attr('y', chartHeight + 28)
+    .attr('y', chartHeight + chartMargin.bottom - 10)
     .attr('text-anchor','middle')
     .text('month');
 
-  // y-axis label
-  chartG.append('text')
+  // y-axis label (keep a reference so we can reposition if size changes)
+  const yLabel = chartG.append('text')
     .attr('class','axis-label')
     .attr('transform', `translate(-28,${chartHeight/2}) rotate(-90)`)
     .attr('text-anchor','middle')
@@ -448,13 +454,21 @@ Promise.all([
 
   // function to update chart based on a list of fire features
   function updateChartFromFires(fireFeatures) {
+    // recompute sizes in case the chart container changed (CSS or viewport)
+    const size = getChartSize();
+    chartWidth = size.width;
+    chartHeight = size.height;
+    // update scales ranges
+    x.range([0, chartWidth]);
+    y.range([chartHeight, 0]);
+
     monthlyAvg = computeMonthlyAvg(fireFeatures);
     // update y-domain
     const minVal = d3.min(monthlyAvg.filter(d=>d!=null)) || 300;
     const maxVal = d3.max(monthlyAvg.filter(d=>d!=null)) || 340;
     y.domain([minVal, maxVal]).nice();
     // redraw y axis
-    chartG.select('.chart-axis.y-axis').call(d3.axisLeft(y).ticks(3));
+    yAxisG.call(d3.axisLeft(y).ticks(3));
     // update line
     linePath.datum(monthlyAvg).attr('d', line);
     // update points
@@ -467,11 +481,18 @@ Promise.all([
     // recolor month rects using the new monthlyAvg
     chartG.selectAll('.month-rect').each(function(d,i) {
       const rect = d3.select(this);
+      // update rect geometry in case size changed
+      rect.attr('x', x(i) - (chartWidth/12)/2 ).attr('width', (chartWidth/12)).attr('height', chartHeight);
       const avg = monthlyAvg[i];
       if (avg != null && typeof colorScale === 'function') {
         rect.style('fill', colorScale(avg)).style('opacity', 0.16);
       }
     });
+    // update x axis positioning and label using new chartHeight
+    xAxisG.attr('transform', `translate(0,${chartHeight})`).call(xAxis);
+    xLabel.attr('x', chartWidth / 2).attr('y', chartHeight + chartMargin.bottom - 10);
+    // update y-label position as well
+    yLabel.attr('transform', `translate(-28,${chartHeight/2}) rotate(-90)`);
   }
 
   // helper to update which month rects are visible based on selected seasons
@@ -675,8 +696,22 @@ Promise.all([
       .on('mouseout', () => hideTooltip());
 
   // update chart to reflect current min-brightness (ignore season filtering for the line)
-  const firesForChart = filteredFireData.filter(d => d.properties.BRIGHTNESS >= minBrightness);
-  if (typeof updateChartFromFires === 'function') updateChartFromFires(firesForChart);
+  // Chart should reflect min-brightness AND selected states (if any).
+  // If no states are selected, use all fires that meet minBrightness. If states
+  // are selected, restrict to fires whose precomputed _containingStates include
+  // any selected state.
+  const firesForChart = filteredFireData.filter(d => {
+    if (!d || !d.properties) return false;
+    if (d.properties.BRIGHTNESS < minBrightness) return false;
+    if (selectedStates.size === 0) return true;
+    const c = d.properties._containingStates || [];
+    for (let i = 0; i < c.length; i++) if (selectedStates.has(c[i])) return true;
+    return false;
+  });
+  if (typeof updateChartFromFires === 'function') {
+    lastFiresForChart = firesForChart;
+    updateChartFromFires(firesForChart);
+  }
     if (typeof updateChartHighlights === 'function') updateChartHighlights(selectedSeasons);
   }
 
@@ -693,6 +728,15 @@ Promise.all([
       updateFires();
     });
   }
+
+  // re-render chart on window resize so axis/ticks/labels remain visible
+  window.addEventListener('resize', () => {
+    try {
+      if (typeof updateChartFromFires === 'function') updateChartFromFires(lastFiresForChart);
+    } catch (e) {
+      // ignore transient errors during resize
+    }
+  });
 
   updateFires(); // initial render
 });

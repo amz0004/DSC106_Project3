@@ -84,8 +84,11 @@ svg {
   right: 20px;
   bottom: 20px; /* anchor to bottom-right */
   width: 360px;
-  /* increase height to accommodate slider above the chart */
-  height: 270px;
+  /* allow the chart box to shrink to fit the viewport: use max-height rather than a fixed height
+    so it will never extend off-screen. Keep a reasonable minimum height for readability. */
+  max-height: calc(100vh - 40px);
+  min-height: 260px;
+  box-sizing: border-box;
   background: rgba(0,0,0,0.6);
   padding: 10px;
   border-radius: 8px;
@@ -125,6 +128,24 @@ svg {
   fill: #fff;
   font-size: 13px;
   font-weight: 600;
+}
+
+/* HTML-based chart title (placed between slider and svg) */
+.chart-title-html {
+  color: #fff;
+  text-align: center;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.1;
+  margin-bottom: 0px; /* small gap before the svg chart */
+}
+.chart-title-html .chart-title-line {
+  margin-bottom: 2px;
+}
+.chart-title-html .chart-title-sub {
+  font-weight: 600;
+  font-size: 11px;
+  color: rgba(255,255,255,0.9);
 }
 
 .axis-label {
@@ -262,14 +283,17 @@ svg {
 #chartBox .slider-box {
   /* stack above the chart - not overlapping */
   position: relative;
-  margin: 0 0 6px 0;
+  margin: 0 0 8px 0;
   z-index: 80;
 }
 
+/* make the SVG fill the available space inside the chart box so it never overflows
+   the container (we compute chart layout from the rendered client size in JS). */
 #chartBox svg {
-  /* ensure svg fits the container under the slider */
   width: 100%;
-  height: calc(100% - 40px); /* leave room for the slider area */
+  height: 100%;
+  max-height: 100%;
+  display: block;
 }
 
 .slider-box .slider-label {
