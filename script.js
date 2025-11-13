@@ -63,6 +63,93 @@ Promise.all([
   // --- ADD FIRES ---
   const pointsGroup = svg.append("g");
 
+  // --- BRIGHTNESS BY MONTH CHART ---
+  const chartSvg = d3.select('#chartSvg');
+  const chartMargin = {top: 18, right: 12, bottom: 28, left: 36};
+  const chartWidth = +chartSvg.attr('width') - chartMargin.left - chartMargin.right;
+  const chartHeight = +chartSvg.attr('height') - chartMargin.top - chartMargin.bottom;
+  const chartG = chartSvg.append('g').attr('transform', `translate(${chartMargin.left},${chartMargin.top})`);
+
+  function computeMonthlyAvg(dataset) {
+    const counts = new Array(12).fill(0);
+    const sums = new Array(12).fill(0);
+    dataset.forEach(d => {
+      const p = d.properties || {};
+      const b = +p.BRIGHTNESS;
+      const date = new Date(p.ACQ_DATE);
+      if (!isNaN(b) && !isNaN(date)) {
+        const m = date.getMonth();
+        sums[m] += b;
+        counts[m] += 1;
+      }
+    });
+    return sums.map((s, i) => counts[i] ? s / counts[i] : null);
+  }
+
+  // initial monthly averages from full fireData
+  const monthlyAvg = computeMonthlyAvg(fireData.features);
+
+  // scales
+  const x = d3.scalePoint().domain(d3.range(0,12)).range([0, chartWidth]).padding(0.5);
+  const y = d3.scaleLinear().domain([d3.min(monthlyAvg.filter(d=>d!=null)) || 300, d3.max(monthlyAvg.filter(d=>d!=null)) || 340]).nice().range([chartHeight, 0]);
+
+  // axes
+  const xAxis = d3.axisBottom(x).tickFormat(i => (i+1)); // months 1..12
+  const yAxis = d3.axisLeft(y).ticks(3);
+
+  chartG.append('g').attr('class','chart-axis x-axis').attr('transform', `translate(0,${chartHeight})`).call(xAxis);
+  chartG.append('g').attr('class','chart-axis y-axis').call(yAxis);
+
+  // overlay rects for each month (for highlights)
+  const monthRects = chartG.selectAll('.month-rect').data(d3.range(0,12)).enter()
+    .append('rect')
+    .attr('class','month-rect hidden')
+    .attr('x', d => x(d) - (chartWidth/12)/2 )
+    .attr('y', 0)
+    .attr('width', (chartWidth/12))
+    .attr('height', chartHeight)
+    .style('pointer-events','none');
+
+  // line and points
+  const line = d3.line()
+    .defined((d,i) => monthlyAvg[i] != null)
+    .x((d,i) => x(i))
+    .y((d,i) => y(monthlyAvg[i]));
+
+  chartG.append('path').datum(monthlyAvg).attr('class','chart-line').attr('d', line);
+  // points
+  chartG.selectAll('.chart-point').data(monthlyAvg.map((v,i)=>({v,i}))).enter()
+    .append('circle')
+    .attr('class','chart-point')
+    .attr('cx', d => x(d.i))
+    .attr('cy', d => (d.v!=null ? y(d.v) : -10))
+    .attr('r', 3);
+
+  // helper to update which month rects are visible based on selected seasons
+  function updateChartHighlights(selectedSeasons) {
+    const monthsSet = new Set();
+    selectedSeasons.forEach(s => { if (seasons[s]) seasons[s].forEach(m => monthsSet.add(m)); });
+    // for each rect, toggle class hidden and set color based on monthly average when available
+    chartG.selectAll('.month-rect').each(function(d,i) {
+      const rect = d3.select(this);
+      if (monthsSet.has(i)) {
+        rect.classed('hidden', false);
+        const avg = monthlyAvg[i];
+        if (avg != null && typeof colorScale === 'function') {
+          rect.style('fill', colorScale(avg)).style('opacity', 0.16);
+        } else {
+          rect.style('fill', 'steelblue').style('opacity', 0.12);
+        }
+      } else {
+        rect.classed('hidden', true);
+      }
+    });
+  }
+
+  // initialize with no highlight (or with currently checked seasons)
+  const initialSeasons = Array.from(document.querySelectorAll('.season:checked')).map(cb => cb.value);
+  updateChartHighlights(initialSeasons);
+
   // Tooltip element
   const tooltipEl = document.getElementById('tooltip');
   function formatDateString(acqDate, acqTime) {
@@ -103,6 +190,7 @@ Promise.all([
     tooltipEl.setAttribute('aria-hidden', 'false');
     moveTooltip(event);
   }
+  
 
   function moveTooltip(event) {
     if (!tooltipEl) return;
@@ -170,6 +258,7 @@ Promise.all([
   function updateFires() {
     const selectedSeasons = Array.from(document.querySelectorAll(".season:checked")).map(cb => cb.value);
     updateTitle(selectedSeasons);
+    if (typeof updateChartHighlights === 'function') updateChartHighlights(selectedSeasons);
     const minBrightness = +document.getElementById("brightnessSlider").value;
 
     const firesToShow = filteredFireData.filter(d => {

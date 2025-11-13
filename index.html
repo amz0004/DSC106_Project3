@@ -25,7 +25,13 @@
     <input type="range" id="brightnessSlider" class="slider-range" min="325" max="500" value="325">
   </div>
 
-    <svg></svg>
+  <!-- Main map SVG -->
+  <svg></svg>
+
+  <!-- Small brightness-by-month chart (top-right) -->
+  <div id="chartBox">
+    <svg id="chartSvg" width="360" height="220" aria-label="Average brightness by month"></svg>
+  </div>
 
   <!-- Tooltip element for point hover -->
   <div id="tooltip" class="tooltip" aria-hidden="true"></div>
@@ -33,5 +39,3 @@
 </body>
 </html>
 
-
-<!-- Tooltip element for point hover -->
