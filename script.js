@@ -218,18 +218,8 @@ Promise.all([
     .style('box-shadow', '0 6px 18px rgba(0,0,0,0.4)')
     .style('display', 'none')
     .on('click', () => {
-      // reset both state selection and brush selection
       selectedStates.clear();
       updateStateStyles();
-      // clear any brush selection and hide overlay
-      brushLayer.call(brushBehavior.move, null);
-      overlayGroup.style('display', 'none');
-      maskHole.attr('width', 0).attr('height', 0);
-      brushMode = false;
-      brushToggleBtn.classed('active', false);
-      brushLayer.style('display', 'none');
-      // re-enable state pointer events
-      statesG.style('pointer-events', null);
       updateFires();
       // reset map transform to original view
       gMap.transition().duration(600).attr('transform', null);
@@ -263,18 +253,6 @@ Promise.all([
     .style('box-shadow', '0 6px 18px rgba(0,0,0,0.4)')
     .style('display', 'none');
 
-  // brush toggle button
-  const brushToggleBtn = controls.append('button')
-    .attr('id', 'brushToggleBtn')
-    .text('Brush')
-    .attr('title', 'Toggle brush mode')
-    .style('padding', '8px 10px')
-    .style('background', 'rgba(0,0,0,0.6)')
-    .style('color', '#fff')
-    .style('border', '1px solid rgba(255,255,255,0.08)')
-    .style('border-radius', '6px')
-    .style('box-shadow', '0 6px 18px rgba(0,0,0,0.4)');
-
   // zoom handlers will be attached below after statesG exists
 
 
@@ -292,10 +270,8 @@ Promise.all([
     .attr('stroke', '#333')
     .style('cursor', 'pointer')
     .on('click', function(event, d) {
-      // If brush mode is active, state clicks are disabled
-      event.stopPropagation();
-      if (brushMode) return;
       // toggle selection
+      event.stopPropagation();
       const name = d.properties && d.properties.NAME;
       if (!name) return;
       if (selectedStates.has(name)) {
@@ -358,17 +334,6 @@ Promise.all([
 
   // wire zoom buttons
   zoomInBtn.on('click', () => {
-    if (brushMode) {
-      // try to zoom to current brush bbox
-      const sel = d3.brushSelection(brushLayer.node());
-      if (!sel) return;
-      const [[x0, y0], [x1, y1]] = sel;
-      const t = computeFitTransformForBBox(x0, y0, x1, y1);
-      if (!t) return;
-      gMap.transition().duration(700).attr('transform', `translate(${t.tx},${t.ty}) scale(${t.k})`);
-      zoomOutBtn.style('display', 'inline-block');
-      return;
-    }
     const t = computeFitTransform();
     if (!t) return;
     gMap.transition().duration(700).attr('transform', `translate(${t.tx},${t.ty}) scale(${t.k})`);
@@ -378,131 +343,6 @@ Promise.all([
   zoomOutBtn.on('click', () => {
     gMap.transition().duration(700).attr('transform', null);
     zoomOutBtn.style('display', 'none');
-  });
-
-  // Toggle brush mode when brush button clicked
-  brushToggleBtn.on('click', () => {
-    toggleBrushMode();
-  });
-
-  // compute transform for an arbitrary screen bbox (used for brushed zoom)
-  function computeFitTransformForBBox(x0, y0, x1, y1) {
-    const dx = x1 - x0;
-    const dy = y1 - y0;
-    if (dx <= 0 || dy <= 0) return null;
-    const padding = 40;
-    const k = Math.min((width - padding) / dx, (height - padding) / dy) * 0.95;
-    const cx = (x0 + x1) / 2;
-    const cy = (y0 + y1) / 2;
-    const tx = (width / 2) - k * cx;
-    const ty = (height / 2) - k * cy;
-    return { k, tx, ty };
-  }
-
-  // toggle brush mode on/off
-  let lastBrushFires = null; // cached fires inside current brush
-  function toggleBrushMode() {
-    brushMode = !brushMode;
-    brushToggleBtn.classed('active', brushMode);
-    if (brushMode) {
-      // entering brush mode: clear state selection and disable state clicks
-      selectedStates.clear();
-      updateStateStyles();
-      statesG.style('pointer-events', 'none');
-      overlayGroup.style('display', 'block');
-      brushLayer.style('display', 'block');
-      resetBtn.style('display', 'none');
-      zoomInBtn.style('display', 'none');
-      zoomOutBtn.style('display', 'none');
-    } else {
-      // exiting brush mode: hide overlay and clear any brush selection
-      brushLayer.call(brushBehavior.move, null);
-      overlayGroup.style('display', 'none');
-      maskHole.attr('width', 0).attr('height', 0);
-      brushLayer.style('display', 'none');
-      statesG.style('pointer-events', null);
-      // restore chart to lastFiresForChart (state/season based)
-      if (lastFiresForChart) updateChartFromFires(lastFiresForChart);
-    }
-  }
-
-  // brush event handlers
-  function brushed(event) {
-    const sel = event.selection;
-    if (!sel) return;
-    const [[x0, y0], [x1, y1]] = sel;
-    // update mask hole to create a window in the overlay
-    maskHole.attr('x', x0).attr('y', y0).attr('width', Math.max(0, x1 - x0)).attr('height', Math.max(0, y1 - y0));
-    // compute which fires fall inside the brush (respect season and brightness)
-    const selectedSeasons = Array.from(document.querySelectorAll('.season:checked')).map(cb => cb.value);
-    const minBrightness = +document.getElementById('brightnessSlider').value;
-    const firesInBrush = filteredFireData.filter(d => {
-      if (!d || !d.geometry) return false;
-      const p = projection(d.geometry.coordinates);
-      if (!p || !isFinite(p[0]) || !isFinite(p[1])) return false;
-      const x = p[0], y = p[1];
-      if (x < x0 || x > x1 || y < y0 || y > y1) return false;
-      const month = new Date(d.properties.ACQ_DATE).getMonth();
-      const inSeason = selectedSeasons.some(s => seasons[s].includes(month));
-      if (!inSeason) return false;
-      if (d.properties.BRIGHTNESS < minBrightness) return false;
-      return true;
-    });
-    lastBrushFires = firesInBrush;
-    if (typeof updateChartFromFires === 'function') updateChartFromFires(firesInBrush);
-    // show reset and zoom buttons when there is an active brush selection
-    if (firesInBrush.length > 0) {
-      resetBtn.style('display', 'block');
-      zoomInBtn.style('display', 'inline-block');
-      zoomOutBtn.style('display', 'none');
-    } else {
-      resetBtn.style('display', 'none');
-      zoomInBtn.style('display', 'none');
-      zoomOutBtn.style('display', 'none');
-    }
-  }
-
-  function brushedEnd(event) {
-    const sel = event.selection;
-    if (!sel) {
-      // cleared brush -> hide overlay hole, clear cached brush fires
-      maskHole.attr('width', 0).attr('height', 0);
-      lastBrushFires = null;
-      // restore chart (use global lastFiresForChart)
-      if (!brushMode && lastFiresForChart) updateChartFromFires(lastFiresForChart);
-      resetBtn.style('display', 'none');
-      zoomInBtn.style('display', 'none');
-      zoomOutBtn.style('display', 'none');
-    }
-  }
-
-  // clicking on the svg outside the brush selection should exit brush mode
-  svg.on('click', (event) => {
-    if (!brushMode) return;
-    const sel = d3.brushSelection(brushLayer.node());
-    const [mx, my] = d3.pointer(event, svg.node());
-    if (!sel) {
-      // no selection: exit brush mode
-      overlayGroup.style('display', 'none');
-      brushLayer.style('display', 'none');
-      brushMode = false;
-      brushToggleBtn.classed('active', false);
-      statesG.style('pointer-events', null);
-      if (lastFiresForChart) updateChartFromFires(lastFiresForChart);
-      return;
-    }
-    const [[x0, y0], [x1, y1]] = sel;
-    if (mx < x0 || mx > x1 || my < y0 || my > y1) {
-      // clicked outside the current brush box: clear and hide overlay
-      brushLayer.call(brushBehavior.move, null);
-      overlayGroup.style('display', 'none');
-      maskHole.attr('width', 0).attr('height', 0);
-      brushLayer.style('display', 'none');
-      brushMode = false;
-      brushToggleBtn.classed('active', false);
-      statesG.style('pointer-events', null);
-      if (lastFiresForChart) updateChartFromFires(lastFiresForChart);
-    }
   });
 
   // --- DEFINE SEASONS ---
@@ -521,37 +361,6 @@ Promise.all([
   const colorScale = d3.scaleSequential(d3.interpolateRgb("red", "yellow")).domain([325, 510]);
   // --- ADD FIRES ---
   const pointsGroup = gMap.append("g");
-
-  // --- BRUSH / BLANK MAP OVERLAY SETUP ---
-  // brushMode prevents clickable state selection while active
-  let brushMode = false;
-  // defs for mask used to create a 'window' in the overlay image
-  const defs = svg.append('defs');
-  const overlayMask = defs.append('mask').attr('id', 'overlayMask');
-  // white means show overlay, black will create a hole (window) to reveal interactive map
-  overlayMask.append('rect').attr('class','mask-bg').attr('x', 0).attr('y', 0).attr('width', width).attr('height', height).attr('fill', 'white');
-  // the hole (black) starts at zero size
-  const maskHole = overlayMask.append('rect').attr('class','mask-hole').attr('x', 0).attr('y', 0).attr('width', 0).attr('height', 0).attr('fill', 'black');
-
-  // overlay group placed above the main svg content. We'll toggle display on/off
-  const overlayGroup = svg.append('g').attr('class', 'overlay-group').style('display', 'none');
-  const overlayImage = overlayGroup.append('image')
-    .attr('href', 'Blank_Map.png')
-    .attr('x', 0)
-    .attr('y', 0)
-    .attr('width', width)
-    .attr('height', height)
-    .attr('preserveAspectRatio', 'xMidYMid slice')
-    .attr('mask', 'url(#overlayMask)');
-
-  // brush layer (on top so user can drag a rectangle)
-  const brushLayer = svg.append('g').attr('class', 'brush-layer').style('display', 'none');
-  const brushBehavior = d3.brush()
-    .extent([[0,0],[width,height]])
-    .on('brush', brushed)
-    .on('end', brushedEnd);
-  brushLayer.call(brushBehavior);
-
 
   // --- BRIGHTNESS BY MONTH CHART ---
   const chartSvg = d3.select('#chartSvg');
@@ -900,15 +709,8 @@ Promise.all([
     return false;
   });
   if (typeof updateChartFromFires === 'function') {
-    // if brush mode is active and we have a brush-filtered selection, prefer
-    // showing the brush selection in the chart. Otherwise update chart from
-    // the default firesForChart dataset.
-    if (brushMode && lastBrushFires) {
-      updateChartFromFires(lastBrushFires);
-    } else {
-      lastFiresForChart = firesForChart;
-      updateChartFromFires(firesForChart);
-    }
+    lastFiresForChart = firesForChart;
+    updateChartFromFires(firesForChart);
   }
     if (typeof updateChartHighlights === 'function') updateChartHighlights(selectedSeasons);
   }
