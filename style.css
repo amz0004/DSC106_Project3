@@ -78,21 +78,25 @@ svg {
   font-size: 12px;
 }
 
-/* Small chart container in the top-right */
+/* Small chart container anchored to the bottom-right */
 #chartBox {
   position: absolute;
-  /* place above the brightness slider (which sits at bottom-right) */
   right: 20px;
-  bottom: 100px;
+  bottom: 20px; /* anchor to bottom-right */
   width: 360px;
-  height: 220px;
+  /* increase height to accommodate slider above the chart */
+  height: 270px;
   background: rgba(0,0,0,0.6);
   padding: 10px;
   border-radius: 8px;
   box-shadow: 0 6px 18px rgba(0,0,0,0.4);
   color: white;
   font-size: 12px;
-  z-index: 60;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
 }
 
 #chartBox svg {
@@ -208,9 +212,7 @@ svg {
 
 /* Brightness slider box to match dropdown appearance */
 .slider-box {
-  position: absolute;
-  right: 20px; /* bottom-right of the screen */
-  bottom: 20px;
+  /* default inline appearance; when placed in the chart container we'll absolutely position it inside */
   background: rgba(0,0,0,0.6);
   padding: 8px 12px;
   border-radius: 8px;
@@ -221,6 +223,20 @@ svg {
   font-size: 14px;
   box-shadow: 0 6px 18px rgba(0,0,0,0.4);
   --thumb-color: #ffd166; /* default thumb color, overridden by JS */
+}
+
+/* when slider is inside the chart box, place it over the chart */
+#chartBox .slider-box {
+  /* stack above the chart - not overlapping */
+  position: relative;
+  margin: 0 0 6px 0;
+  z-index: 80;
+}
+
+#chartBox svg {
+  /* ensure svg fits the container under the slider */
+  width: 100%;
+  height: calc(100% - 40px); /* leave room for the slider area */
 }
 
 .slider-box .slider-label {

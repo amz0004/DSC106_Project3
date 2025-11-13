@@ -19,17 +19,18 @@
     </div>
   </div>
 
-  <!-- Brightness slider styled to match dropdown appearance -->
-  <div class="slider-box" id="brightnessControl">
-    <label class="slider-label">Min Brightness: <span id="brightnessValue">325</span></label>
-    <input type="range" id="brightnessSlider" class="slider-range" min="325" max="500" value="325">
-  </div>
+  <!-- Brightness slider will be placed inside the chart box so it sits visually on top -->
 
   <!-- Main map SVG -->
   <svg></svg>
 
   <!-- Small brightness-by-month chart (top-right) -->
   <div id="chartBox">
+    <!-- place the brightness slider inside the chart box so it sits visually on top -->
+    <div class="slider-box" id="brightnessControl">
+      <label class="slider-label">Min Brightness: <span id="brightnessValue">325</span></label>
+      <input type="range" id="brightnessSlider" class="slider-range" min="325" max="500" value="325">
+    </div>
     <svg id="chartSvg" width="360" height="220" aria-label="Average brightness by month"></svg>
   </div>
 
