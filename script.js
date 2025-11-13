@@ -37,14 +37,109 @@ Promise.all([
   d3.json("us-states.json")
 ]).then(([fireData, states]) => {
 
+  // --- DRAW GRATITCULE (longitude/latitude grid) ---
+  // draw a subtle graticule behind the states and points. Step can be adjusted to 5 or 10 degrees.
+  const graticule = d3.geoGraticule().step([10, 10]); // [lonStep, latStep] in degrees
+  svg.append('g')
+    .attr('class', 'graticule-group')
+    .append('path')
+    .datum(graticule())
+    .attr('class', 'graticule')
+    .attr('d', path);
+
+  // Add graticule tick labels (lon across top/bottom, lat at left/right)
+  // We'll compute tick positions by projecting representative points and place labels at the SVG edges.
+  const gLabels = svg.append('g').attr('class', 'graticule-labels');
+  const lonStep = 10; // degrees
+  const latStep = 10;
+  const lonTicks = d3.range(-180, 181, lonStep);
+  const latTicks = d3.range(-90, 91, latStep);
+
+  // place longitude labels along the top if projection yields valid x
+  lonTicks.forEach(lon => {
+    // pick a central latitude for label placement (approx center of projection): 40N
+    const pt = projection([lon, 40]);
+    if (pt && isFinite(pt[0]) && pt[0] >= 0 && pt[0] <= width) {
+      gLabels.append('text')
+        .attr('class', 'graticule-label lon')
+        .attr('x', pt[0])
+        .attr('y', 14)
+        .text(`${lon}°`);
+    }
+  });
+
+  // place latitude labels along the left edge if projection yields valid y
+  latTicks.forEach(lat => {
+    // pick a central longitude for label placement (approx center of US): -95
+    const pt = projection([-95, lat]);
+    if (pt && isFinite(pt[1]) && pt[1] >= 0 && pt[1] <= height) {
+      gLabels.append('text')
+        .attr('class', 'graticule-label lat')
+        .attr('x', 8)
+        .attr('y', pt[1] + 4)
+        .text(`${lat}°`);
+    }
+  });
+
+  // --- INSET BOXES FOR ALASKA & HAWAII ---
+  // Draw a subtle rounded rect behind each inset state and clip a finer graticule into it
+  function addInsetBox(stateName, clipId, step) {
+    const feature = states.features.find(s => s.properties && s.properties.NAME === stateName);
+    if (!feature) return;
+    // compute projected bounds for placement of the inset box
+    const b = path.bounds(feature); // [[x0,y0],[x1,y1]]
+    const pad = 8;
+    const x = b[0][0] - pad;
+    const y = b[0][1] - pad;
+    const w = (b[1][0] - b[0][0]) + pad * 2;
+    const h = (b[1][1] - b[0][1]) + pad * 2;
+
+    const inset = svg.append('g').attr('class', `inset-${stateName.replace(/\s+/g,'-').toLowerCase()}`);
+    // clip path (in screen/projected coordinates)
+    inset.append('clipPath').attr('id', clipId)
+      .append('rect').attr('x', x).attr('y', y).attr('width', w).attr('height', h);
+    // background box (covers any underlying global graticule)
+    inset.append('rect')
+      .attr('class', 'inset-box')
+      .attr('x', x)
+      .attr('y', y)
+      .attr('width', w)
+      .attr('height', h)
+      .attr('rx', 6);
+
+    // --- create a graticule limited to the geographic bbox of the state ---
+    // Use geoBounds to get lon/lat extent and build a graticule only inside that extent
+    const geoB = d3.geoBounds(feature); // [[minLon,minLat],[maxLon,maxLat]]
+    const padDeg = 1; // small padding in degrees so lines just outside the state are included
+    const extent = [
+      [geoB[0][0] - padDeg, geoB[0][1] - padDeg],
+      [geoB[1][0] + padDeg, geoB[1][1] + padDeg]
+    ];
+    const smallGraticule = d3.geoGraticule().extent(extent).step([step, step]);
+
+    // append graticule path but clip to the inset rectangle just in case
+    inset.append('path')
+      .datum(smallGraticule())
+      .attr('class', 'inset-graticule')
+      .attr('d', path)
+      .attr('clip-path', `url(#${clipId})`);
+  }
+
+  addInsetBox('Alaska', 'clip-ak', 10);
+  addInsetBox('Hawaii', 'clip-hi', 10);
+
+
   // --- DRAW STATES ---
-  svg.selectAll("path")
+  // create a dedicated group for state paths so we don't accidentally bind to
+  // other <path> elements (graticules, inset paths, etc.) that were appended earlier
+  const statesG = svg.append('g').attr('class', 'states-group');
+  statesG.selectAll('path')
     .data(states.features)
     .enter()
-    .append("path")
-    .attr("d", path)
-    .attr("fill", "#1b1b1b")
-    .attr("stroke", "#333");
+    .append('path')
+    .attr('d', path)
+    .attr('fill', '#1b1b1b')
+    .attr('stroke', '#333');
 
   // --- DEFINE SEASONS ---
   const seasons = {
@@ -100,10 +195,10 @@ Promise.all([
   // add title
   chartSvg.append('text')
     .attr('class', 'chart-title')
-    .attr('x', +chartSvg.attr('width') - 100)
+    .attr('x', +chartSvg.attr('width') - 12)
     .attr('y', 10)
     .attr('text-anchor', 'end')
-    .text('Avg Brightness by Month');
+    .text('Avg Brightness by Month given Min Brightness Filter');
 
   // draw axes
   chartG.append('g').attr('class','chart-axis x-axis').attr('transform', `translate(0,${chartHeight})`).call(xAxis);

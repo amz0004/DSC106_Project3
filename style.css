@@ -55,7 +55,7 @@ body {
 
 svg {
   width: 100vw;
-  height: 90vh;
+  height: 100vh;
   display: block;
 }
 #dateLabel {
@@ -145,6 +145,39 @@ svg {
 
 .chart-point {
   fill: #ffd166;
+}
+
+/* Graticule (latitude/longitude lines) */
+.graticule {
+  fill: none;
+  stroke: rgba(200,200,200,0.18);
+  stroke-width: 0.8px;
+  shape-rendering: crispEdges;
+}
+
+.graticule-label {
+  fill: rgba(200,200,200,0.9);
+  font-size: 11px;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.graticule-label.lat {
+  text-anchor: start;
+}
+
+/* inset boxes for Alaska/Hawaii */
+.inset-box {
+  fill: #464646;
+  stroke: rgba(0, 0, 0, 0.14);
+  stroke-width: 2px;
+  rx: 6px;
+}
+
+.inset-graticule {
+  fill: none;
+  stroke: rgba(200,200,200,0.22);
+  stroke-width: 0.7px;
 }
 
 /* Dropdown styles for season filter */
