@@ -26,6 +26,14 @@ if (dropdownToggle && dropdownPanel && seasonDropdown) {
   });
 }
 
+// Write-up button opens new tab
+const writeupBtn = document.getElementById("writeupBtn");
+if (writeupBtn) {
+  writeupBtn.addEventListener("click", () => {
+    window.open("write-up.html", "_blank");
+  });
+}
+
 const projection = d3.geoAlbersUsa()
   .translate([width / 2, height / 2])
   .scale([1200]);
