@@ -21,6 +21,39 @@ body {
   white-space: nowrap;
 }
 
+/* Subtitles placed beneath the main title and centered */
+.subtitle,
+#timeSubtitle,
+#statesSubtitle {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  color: #fff;
+  pointer-events: none;
+  z-index: 50;
+  font-weight: 600;
+}
+
+/* first subtitle (time frame) sits just below the title */
+#timeSubtitle {
+  top: calc(12px + 75px + 18px); /* title top + title font-size + slightly larger gap */
+  font-size: 18px;
+  white-space: nowrap;           /* keep on a single line */
+  max-width: 92vw;              /* allow it to use most of the viewport width */
+  padding: 4px 12px;            /* small padding so text doesn't hit edges */
+  box-sizing: border-box;
+  overflow: hidden;             /* if extremely long, show ellipsis */
+  text-overflow: ellipsis;
+}
+
+/* second subtitle (states) sits beneath the time subtitle */
+#statesSubtitle {
+  top: calc(12px + 75px + 14px + 30px);
+  font-size: 18px;
+  color: rgba(255,255,255,0.95);
+}
+
 /* Tooltip for fire points */
 .tooltip {
   position: absolute;

@@ -601,34 +601,166 @@ Promise.all([
     tooltipEl.setAttribute('aria-hidden', 'true');
   }
 
-  // --- TITLE UPDATING (based on selected seasons) ---
-  const titleEl = document.querySelector('.title');
+  // --- TITLE & SUBTITLES UPDATING ---
+  const titleEl = document.getElementById('mainTitle');
+  const timeSubtitleEl = document.getElementById('timeSubtitle');
+  const statesSubtitleEl = document.getElementById('statesSubtitle');
+
   const allYears = fireData.features.map(d => new Date(d.properties.ACQ_DATE).getFullYear()).filter(y => !isNaN(y));
   const latestYear = allYears.length ? Math.max(...allYears) : (new Date()).getFullYear();
   const orderedMonths = [10,11,0,1,2,3,4,5,6,7,8,9]; // Nov -> Oct ordering
   const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-  function updateTitle(selectedSeasons) {
-    if (!titleEl) return;
-    if (!selectedSeasons) selectedSeasons = Array.from(document.querySelectorAll('.season:checked')).map(cb => cb.value);
-    const monthsSet = new Set();
-    selectedSeasons.forEach(s => {
-      if (seasons[s]) seasons[s].forEach(m => monthsSet.add(m));
-    });
-    if (monthsSet.size === 0) {
-      titleEl.textContent = 'US Fires (no seasons selected)';
-      return;
+  // Compute dataset start/end safely (ignore invalid ACQ_DATE values)
+  const validDates = fireData.features.map(d => {
+    try { return d && d.properties && d.properties.ACQ_DATE ? new Date(d.properties.ACQ_DATE) : null; } catch (e) { return null; }
+  }).filter(d => d instanceof Date && !isNaN(d));
+  const datasetStart = validDates.length ? new Date(Math.min(...validDates.map(d => d.getTime()))) : null;
+  const datasetEnd = validDates.length ? new Date(Math.max(...validDates.map(d => d.getTime()))) : null;
+
+  // Helper: find the year for a given month within the dataset range.
+  // If preferStart is true, find the first occurrence of that month on/after datasetStart;
+  // otherwise find the last occurrence on/before datasetEnd. If dataset bounds
+  // are unavailable, fall back to the latestYear heuristic.
+  function yearForMonthNearest(month, preferStart) {
+    if (datasetStart instanceof Date && datasetEnd instanceof Date) {
+      if (preferStart) {
+        const cur = new Date(datasetStart.getFullYear(), datasetStart.getMonth(), 1);
+        const end = new Date(datasetEnd.getFullYear(), datasetEnd.getMonth(), 1);
+        while (cur.getTime() <= end.getTime()) {
+          if (cur.getMonth() === month) return cur.getFullYear();
+          cur.setMonth(cur.getMonth() + 1);
+        }
+      } else {
+        const cur = new Date(datasetEnd.getFullYear(), datasetEnd.getMonth(), 1);
+        const start = new Date(datasetStart.getFullYear(), datasetStart.getMonth(), 1);
+        while (cur.getTime() >= start.getTime()) {
+          if (cur.getMonth() === month) return cur.getFullYear();
+          cur.setMonth(cur.getMonth() - 1);
+        }
+      }
     }
-    const selectedOrderedIndexes = Array.from(monthsSet).map(m => orderedMonths.indexOf(m)).filter(i => i >= 0);
-    const minIdx = Math.min(...selectedOrderedIndexes);
-    const maxIdx = Math.max(...selectedOrderedIndexes);
-    const startMonth = orderedMonths[minIdx];
-    const endMonth = orderedMonths[maxIdx];
+    return month >= 10 ? latestYear - 1 : latestYear;
+  }
+
+  // Title is now static; no dynamic brightness number to update.
+
+  // Build a per-season range string like: "Winter (Nov 2024–Jan 2025)"
+  function seasonRangeString(seasonName) {
+    const months = seasons[seasonName];
+    if (!months || months.length === 0) return seasonName;
+    const startMonth = months[0];
+    const endMonth = months[months.length - 1];
     const startYear = startMonth >= 10 ? latestYear - 1 : latestYear;
     const endYear = endMonth >= 10 ? latestYear - 1 : latestYear;
     const startName = monthNames[startMonth];
     const endName = monthNames[endMonth];
-    titleEl.textContent = `US Fires from ${startName} ${startYear} to ${endName} ${endYear}`;
+    return `${seasonName} (${startName} ${startYear}–${endName} ${endYear})`;
+  }
+
+  // Update time subtitle by merging consecutive months into continuous ranges.
+  // If selected months form consecutive spans (in the Nov->Oct ordering) they
+  // are shown as a single "startMonth startYear–endMonth endYear" chunk. Non-
+  // contiguous spans are separated by commas.
+  function updateTimeSubtitle(selectedSeasons) {
+    if (!timeSubtitleEl) return;
+    if (!selectedSeasons || selectedSeasons.length === 0) {
+      timeSubtitleEl.textContent = 'Time Frame Currently Displaying: none';
+      return;
+    }
+    // build a set of months (0-11) included by the selected seasons
+    const monthsSet = new Set();
+    selectedSeasons.forEach(s => { if (seasons[s]) seasons[s].forEach(m => monthsSet.add(m)); });
+    if (monthsSet.size === 0) {
+      timeSubtitleEl.textContent = 'Time Frame Currently Displaying: none';
+      return;
+    }
+    // Prefer grouping by actual chronological months within the dataset span.
+    // Build a timeline of month-year slots between the dataset min and max.
+    const validDates = fireData.features.map(d => {
+      try { return d && d.properties && d.properties.ACQ_DATE ? new Date(d.properties.ACQ_DATE) : null; } catch (e) { return null; }
+    }).filter(d => d instanceof Date && !isNaN(d));
+    const datasetStart = validDates.length ? new Date(Math.min(...validDates.map(d => d.getTime()))) : null;
+    let datasetEnd = validDates.length ? new Date(Math.max(...validDates.map(d => d.getTime()))) : null;
+    // If dataset was intentionally truncated to end at October, clamp the
+    // datasetEnd month to October (month 9) to avoid showing November ranges.
+    if (datasetEnd instanceof Date && !isNaN(datasetEnd) && datasetEnd.getMonth() > 9) {
+      datasetEnd = new Date(datasetEnd.getFullYear(), 9, 1); // October of that year
+    }
+
+    if (datasetStart && datasetEnd) {
+      // build chronological month list from datasetStart..datasetEnd inclusive
+      const timeline = [];
+      const cur = new Date(datasetStart.getFullYear(), datasetStart.getMonth(), 1);
+      const end = new Date(datasetEnd.getFullYear(), datasetEnd.getMonth(), 1);
+      while (cur.getTime() <= end.getTime()) {
+        timeline.push({ year: cur.getFullYear(), month: cur.getMonth() });
+        cur.setMonth(cur.getMonth() + 1);
+      }
+
+      // mark which timeline entries are selected (by month number)
+      const marked = timeline.map(t => monthsSet.has(t.month) ? 1 : 0);
+
+      // find contiguous runs in timeline
+      const runs = [];
+      let runStart = null;
+      for (let i = 0; i < marked.length; i++) {
+        if (marked[i] && runStart === null) runStart = i;
+        if ((!marked[i] || i === marked.length - 1) && runStart !== null) {
+          const runEnd = marked[i] ? i : i - 1;
+          runs.push({ start: runStart, end: runEnd });
+          runStart = null;
+        }
+      }
+
+      const parts = runs.map(r => {
+        const s = timeline[r.start];
+        const e = timeline[r.end];
+        const startName = monthNames[s.month];
+        const endName = monthNames[e.month];
+        return `${startName} ${s.year}–${endName} ${e.year}`;
+      });
+
+      timeSubtitleEl.textContent = `Time Frame Currently Displaying: ${parts.join(', ')}`;
+      return;
+    }
+
+    // fallback to previous month-order heuristic if dataset bounds unavailable
+    const marked = orderedMonths.map(m => monthsSet.has(m) ? 1 : 0);
+    const runsFallback = [];
+    let runStartFb = null;
+    for (let i = 0; i < marked.length; i++) {
+      if (marked[i] && runStartFb === null) runStartFb = i;
+      if ((!marked[i] || i === marked.length - 1) && runStartFb !== null) {
+        const runEnd = marked[i] ? i : i - 1;
+        runsFallback.push({ start: runStartFb, end: runEnd });
+        runStartFb = null;
+      }
+    }
+    if (runsFallback.length >= 2 && runsFallback[0].start === 0 && runsFallback[runsFallback.length - 1].end === marked.length - 1) {
+      const first = runsFallback.shift();
+      const last = runsFallback.pop();
+      runsFallback.unshift({ start: last.start, end: first.end });
+    }
+    const partsFb = runsFallback.map(r => {
+      const startMonth = orderedMonths[r.start];
+      const endMonth = orderedMonths[r.end];
+      const startYear = startMonth >= 10 ? latestYear - 1 : latestYear;
+      const endYear = endMonth >= 10 ? latestYear - 1 : latestYear;
+      return `${monthNames[startMonth]} ${startYear}–${monthNames[endMonth]} ${endYear}`;
+    });
+    timeSubtitleEl.textContent = `Time Frame Currently Displaying: ${partsFb.join(', ')}`;
+  }
+
+  // Update states subtitle based on selectedStates set
+  function updateStatesSubtitle() {
+    if (!statesSubtitleEl) return;
+    if (!selectedStates || selectedStates.size === 0) {
+      statesSubtitleEl.textContent = 'States: all states';
+      return;
+    }
+    const arr = Array.from(selectedStates).sort();
+    statesSubtitleEl.textContent = `States: ${arr.join(', ')}`;
   }
 
   // Slider elements for thumb color syncing
@@ -642,8 +774,10 @@ Promise.all([
 
   function updateFires() {
     const selectedSeasons = Array.from(document.querySelectorAll(".season:checked")).map(cb => cb.value);
-  updateTitle(selectedSeasons);
     const minBrightness = +document.getElementById("brightnessSlider").value;
+  // update subtitles to reflect current filters
+  try { updateTimeSubtitle(selectedSeasons); } catch (e) {}
+  try { updateStatesSubtitle(); } catch (e) {}
 
     const firesToShow = filteredFireData.filter(d => {
       const month = new Date(d.properties.ACQ_DATE).getMonth();
