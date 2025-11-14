@@ -111,6 +111,24 @@ svg {
   font-size: 12px;
 }
 
+/* Bottom-center page caption under the main visualization */
+.page-caption {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  max-width: 86vw;
+  text-align: center;
+  color: rgba(255,255,255,0.95);
+  /* background: rgba(0,0,0,0.6); */
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.25;
+  z-index: 60;
+  box-sizing: border-box;
+}
+
 /* Small chart container anchored to the bottom-right */
 #chartBox {
   position: absolute;
