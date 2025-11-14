@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project Write-Up</title>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #1a1a1a;       
+      color: #f2f2f2;             
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 60px auto;
+      padding: 30px;
+      background: rgba(255, 255, 255, 0.04); /* subtle panel */
+      border-radius: 12px;
+      box-shadow: 0 0 25px rgba(0,0,0,0.4);
+    }
+
+    h1, h2, h3 {
+      color: white;
+      font-weight: 700;
+    }
+
+    a {
+      color: #8ab4ff;
+    }
+
+    .back-btn {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      padding: 8px 14px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      color: #fff;
+      text-decoration: none;
+      font-size: 14px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    }
+
+    .back-btn:hover {
+      background: rgba(255,255,255,0.18);
+    }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-btn">← Back to Map</a>
+
+  <div class="container">
+    <h1>Project Write-Up</h1>
+    
+    <h2>Design Process</h2>
+    
+    <p>
+    Our overall design goal was to create an interactive visualization that enables users to explore patterns in U.S. wildfire activity across space, time and intensity. Since the fire data is inherently spatial and highly dense, we try to centered our design around a geographic map view paired with interactive filtering tools that allow users to reveal any patterns without getting overwhelmed by all the points of data.
+    </p>
+    
+    <h3>Visual Encodings</h3>
+
+    <h4>Fire Dot Color and Size</h4>
+    <p>
+    To represent the fire’s brightness, we used two visual encodings. One being the color progressing from red (lower brightness) to yellow (higher brightness and the other being the circle size, where the larger dots represent brighter fires. In the beginning, we experimented with a purple to red to yellow color scale, but the darker purple values blended too much with the background. The final red to yellow palette produced clearer contrast and aligned intuitively with “heat” as a visual metaphor.
+    </p>
+
+    <h4>Background and Map Styling</h4>
+    <p>
+    We used a dark grey U.S. map over s lightly lighter grey page background to give it similar mood and color visual of smoke and ash. This also made sure of a high contrast between the map and the fire markers.
+    </p>
+
+    <h3>Interaction Techniques</h3>
+
+    <h4>Hoverable Tooltips</h4>
+    <p>
+    Since color and size alone aren’t the most precise indicators of brightness, we added tooltips showing the numeric brightness, date and time, fire detection mode, state, and coordinates. This provides the users details immediately without cluttering the map visually.
+    </p>
+
+    <h4>Minimum Brightness Slider</h4>
+    <p>
+    The dataset contains thousands of fire detections, which overwhelmed the visualization and cause long loading times if it was shown unfiltered. A minimum-brightness slider allows users to declutter the map and let it focused on more significant fires. We also linked the slider’s color to the brightness scale, so the UI would be more intuitive since the slider’s appearance matches the actual data being filtered. 
+    </p>
+
+    <h4>Season Filter</h4>
+    <p>
+    A season filter was created since environmental conditions influencing fire activity (humidity, wind, dry vegetation) vary strongly by season. We considered first letting users filter by month, but 12 checkboxes started to cluttered the UI. Grouping months into 4 seasons preserved more insight while keeping the interface clean.
+    </p>
+
+    <h4>Dynamic Monthly Brightness Line Graph</h4>
+    <p>
+    During the early EDA, it was revealed clear seasonal patterns in average brightness. To support more insight, we added a dynamic line graph showing the average fire brightness per month, updated in real time based on the minimum brightness threshold, the selected states (or entire US when none are selected), and selected seasons. The graph always shows all 12 months for easy comparison but highlights the months included in the selected seasons.
+    </p>
+
+    <h4>Clickable State Selection</h4>
+    <p>
+    Many users have personal ties to specific states, so we implemented a selection interaction for focusing on individual states or multi-state regions. When adding the multi-selection, it presented a zooming challenge. It would start auto-zooming immediately after selecting a single state which prevented users from selecting additional states. We solved this by adding a Zoom button that’s allowing the user to select multiple states first and then zoom in. A Reset button then clears all selections at once for some convenience.
+    </p>
+
+    <h4>Dynamic Titles and Subtitles</h4>
+    <p>
+    We wanted to avoid confusion about which subset of the data is being visualized, so the title is automatically updated to reflect selected seasons and the associated date range.
+    </p>
+
+    <h3>Alternatives Considered</h3>
+    <p>
+    When we started, we first prototyped an animation-based time line showing fire activity frame by frame over time. While the graph was visually engaging, this approach limited the control the user had and made exploration linear. We pivoted to a filter-based approach to let the users to enable deeper, more flexible investigations. We also debated shortening the time range of the data instead of filtering by brightness. Doing that though would hide important seasonal patterns. In the end, we decided to remove fires below 325 K because they’re low-intensity events and made up most of the dataset.
+    </p>
+
+    <h2>Development Process</h2>
+
+    <h3>Team Workflow</h3>
+    <p>
+    We began by going over several initial ideas, such as an animated fire timeline or a simple static map. Through discussion and some prototyping, we narrowed the project down to an interactive map visualization that paired filtering tools with a dynamic brightness chart. We documented all decisions, both accepted and removed, in a shared Google Doc.
+    </p>
+
+    <h3>Division of Labor</h3>
+    <p>
+    Based on our own strengths, we divided the responsibility:<br>
+    • Amy: Initial visualization planning, base map setup, state boundaries, fire plotting, data truncation, brush/selection experiments.<br>
+    • Vanessa: Data collection, tooltip implementation, brightness slider, major logic for the dynamic line graph, and selection-related interactions.<br>
+    • Bryan: Research, season filtering logic, dynamic subtitles/title system, and write-up development.
+    </p>
+
+    <h3>Time Spent</h3>
+    <p>
+    Across planning, prototyping and implementation, we estimated the time spent was approximately around 30 total hours.
+    </p>
+
+    <h3>Most Time-Consuming Aspects</h3>
+    <p>
+    Some of the largest time investments parts for out group was settling on a final concept, implementing a robust state/season selection, debugging brush interactions (which ultimately led to click selection) and managing the dataset size and performance.
+    </p>
+
+    <h3>Challenges and Iterations</h3>
+    <p>
+    We constantly and repeatedly refined interactions to felt clarity and user exploration was most important. For example, we saw that months vs seasons was a significant design tradeoff, the auto-zooming became disruptive till we introduced manual zoom controls and the brush selection was explored for 2 to 3 hours but then was abandaoned due to performance and usability issues. All these iterations shaped our design that’s both functional and intuitive.
+    </p>
+
+</body>
+</html>
