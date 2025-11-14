@@ -301,6 +301,30 @@ svg {
   box-shadow: 0 6px 18px rgba(0,0,0,0.4);
 }
 
+/* Write up button style */
+
+#writeupBtnContainer {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  z-index: 9999;
+}
+
+#writeupBtn {
+  padding: 8px 14px;
+  background: rgba(0,0,0,0.6);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0px 6px 16px rgba(0,0,0,0.3);
+  font-size: 14px;
+}
+
+#writeupBtn:hover {
+  background: rgba(255,255,255,0.12);
+}
+
 /* Ensure the [hidden] attribute actually hides the panel (author CSS can override UA rules) */
 .dropdown-panel[hidden] {
   display: none;
