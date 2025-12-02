@@ -365,8 +365,10 @@ Promise.all([
   const filteredFireData = fireData.features.filter(d => d.properties.BRIGHTNESS >= 325);
 
   // --- BRIGHTNESS + COLOR ---
-  const brightnessScale = d3.scaleLinear().domain([325, 510]).range([2, 8]);
+  const brightnessScale = d3.scaleLinear().domain([325, 510]).range([1, 6]);
   const colorScale = d3.scaleSequential(d3.interpolateRgb("red", "yellow")).domain([325, 510]);
+  // opacity scale: lower brightness -> more transparent, higher brightness -> more opaque
+  const opacityScale = d3.scaleLinear().domain([325, 510]).range([0.35, 0.9]);
   // --- ADD FIRES ---
   const pointsGroup = gMap.append("g");
 
@@ -815,21 +817,23 @@ Promise.all([
       .attr("cy", d => projection(d.geometry.coordinates)[1])
       .attr("r", 0)
       .attr("fill", d => colorScale(d.properties.BRIGHTNESS))
-      .attr("opacity", 0.7)
+      .attr("opacity", d => opacityScale(d.properties.BRIGHTNESS))
       .on('mouseover', (event, d) => showTooltip(event, d))
       .on('mousemove', (event, d) => moveTooltip(event, d))
       .on('mouseout', () => hideTooltip())
       .transition()
-      .duration(500)
+      .duration(150)
       .attr("r", d => brightnessScale(d.properties.BRIGHTNESS));
 
     // UPDATE
     points.transition()
-      .duration(500)
+      .duration(150)
       .attr("cx", d => projection(d.geometry.coordinates)[0])
       .attr("cy", d => projection(d.geometry.coordinates)[1])
       .attr("r", d => brightnessScale(d.properties.BRIGHTNESS))
-      .attr("fill", d => colorScale(d.properties.BRIGHTNESS));
+      .attr("fill", d => colorScale(d.properties.BRIGHTNESS))
+      .attr("opacity", d => opacityScale(d.properties.BRIGHTNESS));
+      
 
     // ensure existing circles also have tooltip handlers
     pointsGroup.selectAll('circle')
