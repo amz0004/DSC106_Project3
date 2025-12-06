@@ -1,3 +1,350 @@
+// ===== TITLE SCREEN OVERLAY =====
+function createTitleScreen() {
+  const overlay = document.createElement('div');
+  overlay.id = 'presentation-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 3000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 1;
+    transition: opacity 0.5s ease;
+  `;
+
+  const titleContainer = document.createElement('div');
+  titleContainer.style.cssText = `
+    text-align: center;
+    color: white;
+  `;
+
+  const title = document.createElement('h1');
+  title.style.cssText = `
+    font-size: 4rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    text-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  `;
+  title.textContent = 'How The Country Burns';
+
+  const subtitle = document.createElement('p');
+  subtitle.style.cssText = `
+    font-size: 1.5rem;
+    font-weight: 300;
+    margin-bottom: 3rem;
+    opacity: 0.8;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  `;
+  subtitle.textContent = 'An Interactive Exploration of U.S. Wildfires (2016-2025)';
+
+  const startButton = document.createElement('button');
+  startButton.textContent = 'Start';
+  startButton.style.cssText = `
+    padding: 0.75rem 2.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  `;
+
+  startButton.addEventListener('mouseover', () => {
+    startButton.style.transform = 'translateY(-2px)';
+    startButton.style.boxShadow = '0 12px 35px rgba(255, 107, 107, 0.4)';
+  });
+
+  startButton.addEventListener('mouseout', () => {
+    startButton.style.transform = 'translateY(0)';
+    startButton.style.boxShadow = '0 8px 25px rgba(255, 107, 107, 0.3)';
+  });
+
+  startButton.addEventListener('click', () => {
+    overlay.style.opacity = '0';
+    overlay.style.pointerEvents = 'none';
+    setTimeout(() => {
+      overlay.remove();
+      startPresentation();
+    }, 500);
+  });
+
+  titleContainer.appendChild(title);
+  titleContainer.appendChild(subtitle);
+  titleContainer.appendChild(startButton);
+  overlay.appendChild(titleContainer);
+  document.body.appendChild(overlay);
+}
+
+// ===== PRESENTATION MODE STATE =====
+window.presentationActive = false;
+window.presentationCompleted = false;
+let currentStepIndex = 0;
+
+// ===== STORY STEPS DEFINITION =====
+const storySteps = [
+  {
+    title: 'The Scale of Wildfire',
+    subtitle: 'Understanding the magnitude across America',
+    text: 'Wildfires have become increasingly prevalent across the United States. This visualization shows NASA satellite data capturing fire hotspots from 2016 to 2025, revealing a decade of fire activity across the nation.'
+  },
+  {
+    title: 'Regional Patterns',
+    subtitle: 'Where fires cluster and concentrate',
+    text: 'Certain regions experience far more fire activity than others. The western states, particularly California, Oregon, and Washington, show concentrated patterns of fire hotspots throughout the decade.'
+  },
+  {
+    title: 'Seasonal Dynamics',
+    subtitle: 'How fire activity changes with seasons',
+    text: 'Wildfire intensity varies dramatically by season. Summer and fall months typically see the highest fire activity, driven by dry conditions, heat waves, and seasonal weather patterns.'
+  },
+  {
+    title: 'Brightness as Intensity',
+    subtitle: 'Satellite detection of fire heat',
+    text: 'The brightness values in this dataset represent the heat intensity detected by satellites. Higher brightness values indicate hotter fires—use the brightness filter to explore different intensity levels.'
+  },
+  {
+    title: 'Explore Further',
+    subtitle: 'Now it\'s your turn',
+    text: 'You now have full access to the interactive visualization. Use the filters to explore specific seasons, adjust brightness thresholds, and discover patterns in fire activity across the United States.'
+  }
+];
+
+// ===== NARRATION BOX & STORY CONTROLS =====
+function createNarrationBox() {
+  const box = document.createElement('div');
+  box.id = 'narration-box';
+  box.style.cssText = `
+    position: fixed;
+    top: 80px;
+    left: 20px;
+    width: 320px;
+    background: rgba(30, 30, 35, 0.95);
+    backdrop-filter: blur(10px);
+    border-left: 4px solid #ff6b6b;
+    border-radius: 8px;
+    padding: 24px;
+    color: white;
+    z-index: 2000;
+    display: none;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    max-height: 60vh;
+    overflow-y: auto;
+  `;
+
+  const titleEl = document.createElement('h3');
+  titleEl.style.cssText = `
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #ff6b6b;
+  `;
+  box.appendChild(titleEl);
+
+  const subtitleEl = document.createElement('p');
+  subtitleEl.style.cssText = `
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #b0b0b0;
+  `;
+  box.appendChild(subtitleEl);
+
+  const textEl = document.createElement('p');
+  textEl.style.cssText = `
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: #e0e0e0;
+  `;
+  box.appendChild(textEl);
+
+  const controlsContainer = document.createElement('div');
+  controlsContainer.style.cssText = `
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+  `;
+
+  const backButton = document.createElement('button');
+  backButton.innerHTML = '←';
+  backButton.style.cssText = `
+    background: rgba(255, 107, 107, 0.2);
+    border: 1px solid #ff6b6b;
+    color: #ff6b6b;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    font-weight: 700;
+  `;
+  backButton.addEventListener('mouseover', () => {
+    backButton.style.background = 'rgba(255, 107, 107, 0.3)';
+    backButton.style.transform = 'scale(1.1)';
+  });
+  backButton.addEventListener('mouseout', () => {
+    backButton.style.background = 'rgba(255, 107, 107, 0.2)';
+    backButton.style.transform = 'scale(1)';
+  });
+  backButton.addEventListener('click', () => goToPreviousStep());
+
+  const nextButton = document.createElement('button');
+  nextButton.innerHTML = '→';
+  nextButton.style.cssText = `
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+    border: none;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    font-weight: 700;
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+  `;
+  nextButton.addEventListener('mouseover', () => {
+    nextButton.style.transform = 'translateY(-2px)';
+    nextButton.style.boxShadow = '0 6px 20px rgba(255, 107, 107, 0.4)';
+  });
+  nextButton.addEventListener('mouseout', () => {
+    nextButton.style.transform = 'translateY(0)';
+    nextButton.style.boxShadow = '0 4px 15px rgba(255, 107, 107, 0.3)';
+  });
+  nextButton.addEventListener('click', () => handleNextButtonClick());
+
+  const stepIndicator = document.createElement('span');
+  stepIndicator.style.cssText = `
+    font-size: 0.85rem;
+    color: #888;
+    flex: 1;
+    text-align: center;
+  `;
+
+  controlsContainer.appendChild(backButton);
+  controlsContainer.appendChild(nextButton);
+  controlsContainer.appendChild(stepIndicator);
+
+  box.appendChild(controlsContainer);
+  document.body.appendChild(box);
+
+  return {
+    element: box,
+    titleEl,
+    subtitleEl,
+    textEl,
+    stepIndicator,
+    backButton,
+    nextButton,
+    show() {
+      box.style.display = 'flex';
+    },
+    hide() {
+      box.style.display = 'none';
+    }
+  };
+}
+
+let narrationBox = null;
+
+// ===== STORY NAVIGATION =====
+function showStep(stepIndex) {
+  if (stepIndex < 0 || stepIndex >= storySteps.length) return;
+
+  currentStepIndex = stepIndex;
+  const step = storySteps[stepIndex];
+
+  narrationBox.titleEl.textContent = step.title;
+  narrationBox.subtitleEl.textContent = step.subtitle;
+  narrationBox.textEl.textContent = step.text;
+  narrationBox.stepIndicator.textContent = `${stepIndex + 1} / ${storySteps.length}`;
+
+  // Update button states
+  narrationBox.backButton.style.opacity = stepIndex === 0 ? '0.4' : '1';
+  narrationBox.backButton.style.pointerEvents = stepIndex === 0 ? 'none' : 'auto';
+
+  // Change next button appearance and text on final step
+  const isLastStep = stepIndex === storySteps.length - 1;
+  if (isLastStep) {
+    narrationBox.nextButton.innerHTML = 'End';
+    narrationBox.nextButton.style.width = 'auto';
+    narrationBox.nextButton.style.height = 'auto';
+    narrationBox.nextButton.style.padding = '0.5rem 1.2rem';
+    narrationBox.nextButton.style.borderRadius = '4px';
+  } else {
+    narrationBox.nextButton.innerHTML = '→';
+    narrationBox.nextButton.style.width = '40px';
+    narrationBox.nextButton.style.height = '40px';
+    narrationBox.nextButton.style.padding = '0';
+    narrationBox.nextButton.style.borderRadius = '50%';
+  }
+  narrationBox.nextButton.style.opacity = '1';
+  narrationBox.nextButton.style.pointerEvents = 'auto';
+
+  // On final step, unlock the visualization
+  if (isLastStep) {
+    window.presentationActive = false;
+    window.presentationCompleted = true;
+  }
+}
+
+function handleNextButtonClick() {
+  goToNextStep();
+}
+
+function goToNextStep() {
+  if (currentStepIndex < storySteps.length - 1) {
+    showStep(currentStepIndex + 1);
+  } else {
+    // On last step, hide the narration box when "End" is clicked
+    narrationBox.hide();
+  }
+}
+
+function goToPreviousStep() {
+  if (currentStepIndex > 0) {
+    showStep(currentStepIndex - 1);
+  }
+}
+
+function startPresentation() {
+  window.presentationActive = true;
+  window.presentationCompleted = false;
+  currentStepIndex = 0;
+  narrationBox.show();
+  showStep(0);
+}
+
+// Create title screen when page loads
+document.addEventListener('DOMContentLoaded', () => {
+  createTitleScreen();
+  narrationBox = createNarrationBox();
+});
+
 const svg = d3.select("svg");
 const width = window.innerWidth;
 const height = window.innerHeight;
