@@ -41,7 +41,7 @@ const projection = d3.geoAlbersUsa()
 const path = d3.geoPath().projection(projection);
 
 Promise.all([
-  d3.json("fires_usa_2016_2025.geojson"),
+  d3.json("fires_year.geojson"),
   d3.json("us-states.json")
 ]).then(([fireData, states]) => {
   // top-level map group so we can apply transforms (zoom/pan) to everything
