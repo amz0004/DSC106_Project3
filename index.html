@@ -41,7 +41,18 @@
     <!-- place the brightness slider inside the chart box so it sits visually on top -->
     <div class="slider-box" id="brightnessControl">
       <label class="slider-label">Min Brightness: <span id="brightnessValue">325</span></label>
-      <input type="range" id="brightnessSlider" class="slider-range" min="325" max="500" value="325">
+      <!-- discrete slider with 25-unit notches from 325 to 500 -->
+      <input type="range" id="brightnessSlider" class="slider-range" min="325" max="500" step="25" value="325" list="brightnessTicks">
+      <datalist id="brightnessTicks">
+        <option value="325"></option>
+        <option value="350"></option>
+        <option value="375"></option>
+        <option value="400"></option>
+        <option value="425"></option>
+        <option value="450"></option>
+        <option value="475"></option>
+        <option value="500"></option>
+      </datalist>
     </div>
     <!-- chart title placed below the slider and above the svg chart -->
     <div id="chartTitleHtml" class="chart-title-html" aria-hidden="false">

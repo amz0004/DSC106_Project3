@@ -364,6 +364,16 @@ Promise.all([
   // --- FILTER FIRE DATA FOR BRIGHTNESS 325-400 ---
   const filteredFireData = fireData.features.filter(d => d.properties.BRIGHTNESS >= 325);
 
+  // --- PRECOMPUTE BRIGHTNESS BUCKETS FOR DISCRETE NOTCHES ---
+  // Notch values: 325, 350, 375, 400, 425, 450, 475, 500
+  const brightnessNotches = [];
+  for (let v = 325; v <= 500; v += 25) brightnessNotches.push(v);
+  // Map notch -> array of features with BRIGHTNESS >= notch
+  const precomputedByNotch = {};
+  brightnessNotches.forEach(n => {
+    precomputedByNotch[n] = filteredFireData.filter(d => (d && d.properties && +d.properties.BRIGHTNESS >= n));
+  });
+
   // --- BRIGHTNESS + COLOR ---
   const brightnessScale = d3.scaleLinear().domain([325, 510]).range([1, 6]);
   const colorScale = d3.scaleSequential(d3.interpolateRgb("red", "yellow")).domain([325, 510]);
@@ -784,21 +794,21 @@ Promise.all([
 
   function updateFires() {
     const selectedSeasons = Array.from(document.querySelectorAll(".season:checked")).map(cb => cb.value);
-    const minBrightness = +document.getElementById("brightnessSlider").value;
+  const minBrightness = +document.getElementById("brightnessSlider").value;
+  // start from the precomputed brightness bucket to avoid scanning the full dataset
+  const candidateFires = precomputedByNotch[minBrightness] || [];
   // update subtitles to reflect current filters
   try { updateTimeSubtitle(selectedSeasons); } catch (e) {}
   try { updateStatesSubtitle(); } catch (e) {}
 
-    const firesToShow = filteredFireData.filter(d => {
+    // Filter candidateFires by season and selected states (candidateFires already meet brightness)
+    const firesToShow = candidateFires.filter(d => {
       const month = new Date(d.properties.ACQ_DATE).getMonth();
       const inSelectedSeason = selectedSeasons.some(s => seasons[s].includes(month));
-      if (!inSelectedSeason || d.properties.BRIGHTNESS < minBrightness) return false;
-      // if any states are selected, only include fires within those state boundaries
+      if (!inSelectedSeason) return false;
       if (selectedStates.size > 0) {
-        // use precomputed containing states on the fire feature for a fast check
         const c = (d.properties && d.properties._containingStates) ? d.properties._containingStates : [];
         if (!c || c.length === 0) return false;
-        // return true if any of the containing state names are in selectedStates
         for (let i = 0; i < c.length; i++) if (selectedStates.has(c[i])) return true;
         return false;
       }
@@ -846,9 +856,10 @@ Promise.all([
   // If no states are selected, use all fires that meet minBrightness. If states
   // are selected, restrict to fires whose precomputed _containingStates include
   // any selected state.
-  const firesForChart = filteredFireData.filter(d => {
+  // Use precomputed bucket for chart too (then apply state filtering)
+  const bucketForChart = precomputedByNotch[minBrightness] || [];
+  const firesForChart = bucketForChart.filter(d => {
     if (!d || !d.properties) return false;
-    if (d.properties.BRIGHTNESS < minBrightness) return false;
     if (selectedStates.size === 0) return true;
     const c = d.properties._containingStates || [];
     for (let i = 0; i < c.length; i++) if (selectedStates.has(c[i])) return true;
